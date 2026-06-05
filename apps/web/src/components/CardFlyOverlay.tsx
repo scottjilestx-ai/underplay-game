@@ -3,20 +3,45 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import type { FlyingCardSpec } from "@/lib/cardFly";
 import { DEAL_FLY_DURATION_S } from "@/lib/dealFly";
+import { CARD_BACK_SRC, cardFaceSrc } from "@/lib/cardArt";
 import { FLY_DURATION_S } from "@/lib/cardFly";
-import { PlayingCard } from "./PlayingCard";
+import { usesSvgDiamondPipFace } from "@/lib/cardSuits";
+import { PipCardFace } from "./PipCardFace";
 
 interface Props {
   specs: FlyingCardSpec[];
   reducedMotion?: boolean;
-  /** Slower deal flight from the deck. */
   dealFlight?: boolean;
-  /** Opening stock deal uses stockDealDurationS (~2s for all cards). */
   stockDealFlight?: boolean;
   stockDealDurationS?: number;
   onComplete: () => void;
+  /** Called when each card's flight finishes (opening deal stock pile). */
+  onCardLand?: (spec: FlyingCardSpec) => void;
+}
+
+function FlyingCardFace({ spec }: { spec: FlyingCardSpec }) {
+  const showBack = spec.faceDown ?? true;
+  const svgDiamondPip =
+    !showBack && usesSvgDiamondPipFace(spec.card.value);
+
+  return (
+    <div className="relative h-full w-full rounded-[0.35rem] overflow-hidden bg-white shadow-[0_10px_28px_rgba(0,0,0,0.5)]">
+      {svgDiamondPip ? (
+        <PipCardFace value={spec.card.value!} className="h-full w-full" />
+      ) : (
+        <Image
+          src={showBack ? CARD_BACK_SRC : cardFaceSrc(spec.card)}
+          alt=""
+          fill
+          className="object-cover"
+          sizes="80px"
+        />
+      )}
+    </div>
+  );
 }
 
 export function CardFlyOverlay({
@@ -26,6 +51,7 @@ export function CardFlyOverlay({
   stockDealFlight,
   stockDealDurationS,
   onComplete,
+  onCardLand,
 }: Props) {
   const duration = dealFlight
     ? stockDealFlight && stockDealDurationS != null
@@ -43,6 +69,17 @@ export function CardFlyOverlay({
     return () => clearTimeout(t);
   }, [specs, reducedMotion, duration, onComplete]);
 
+  useEffect(() => {
+    if (reducedMotion || !onCardLand || specs.length === 0) return;
+    const timers = specs.map((spec) =>
+      window.setTimeout(
+        () => onCardLand(spec),
+        (spec.delay + duration) * 1000,
+      ),
+    );
+    return () => timers.forEach((t) => clearTimeout(t));
+  }, [specs, reducedMotion, duration, onCardLand]);
+
   if (typeof document === "undefined") return null;
   if (reducedMotion || specs.length === 0) return null;
 
@@ -51,7 +88,7 @@ export function CardFlyOverlay({
       {specs.map((spec) => (
         <motion.div
           key={`fly-${spec.id}`}
-          className="fixed"
+          className="fixed overflow-hidden rounded-[0.35rem]"
           initial={{
             left: spec.from.left,
             top: spec.from.top,
@@ -80,14 +117,7 @@ export function CardFlyOverlay({
                   : [0.22, 0.85, 0.25, 1],
           }}
         >
-          <div className="relative h-full w-full">
-            <PlayingCard
-              card={spec.card}
-              faceDown={spec.faceDown}
-              small={spec.small}
-              reducedMotion
-            />
-          </div>
+          <FlyingCardFace spec={spec} />
         </motion.div>
       ))}
     </div>,

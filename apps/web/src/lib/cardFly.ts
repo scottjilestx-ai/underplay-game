@@ -14,7 +14,10 @@ export interface FlyingCardSpec {
   to: FlyRect;
   delay: number;
   faceDown?: boolean;
+  /** @deprecated deal/play flights use fill sizing from from/to rects */
   small?: boolean;
+  /** Opening stock deal: increment pile when this card lands. */
+  stockSeat?: number;
 }
 
 /** Matches PlayingCard default size (4.5rem × 6.5rem at 16px root). */

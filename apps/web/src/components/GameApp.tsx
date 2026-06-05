@@ -255,10 +255,19 @@ export function GameApp() {
     }
   }, [reducedMotion]);
 
+  const onDealCardLand = useCallback((spec: FlyingCardSpec) => {
+    if (spec.stockSeat == null) return;
+    setStockCounts((prev) => ({
+      ...prev,
+      [spec.stockSeat!]: (prev[spec.stockSeat!] ?? 0) + 1,
+    }));
+  }, []);
+
   const runStockDealFly = useCallback((): Promise<void> => {
     if (!state || reducedMotion) return Promise.resolve();
     const cardDur = stockDealFlyDurationS(state);
     setStockDealDurationS(cardDur);
+    setStockCounts({});
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -964,6 +973,7 @@ export function GameApp() {
           dealFlight={flyDeal}
           stockDealFlight={stockDealFly}
           stockDealDurationS={stockDealDurationS}
+          onCardLand={stockDealFly ? onDealCardLand : undefined}
           onComplete={() => {
             flyCommitRef.current?.();
             flyCommitRef.current = null;
@@ -1039,7 +1049,11 @@ export function GameApp() {
               <LetsPlaySplash key="lets-play" reducedMotion={reducedMotion} />
             )}
           </AnimatePresence>
-          <DeckAnimation phase={animPhase} reducedMotion={reducedMotion} />
+          <DeckAnimation
+            phase={animPhase}
+            reducedMotion={reducedMotion}
+            hidden={!!flyingSpecs && flyDeal}
+          />
 
           <div className="flex-1 min-h-0 flex flex-col">
             {showOpponentZone(deckPhase) && (

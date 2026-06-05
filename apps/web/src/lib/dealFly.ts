@@ -1,6 +1,11 @@
 import type { GameState } from "@underplay/engine";
 import { TABLE_SLOTS, buildSlotMap, cardInSlot } from "@/lib/cardSlots";
-import type { FlyRect, FlyingCardSpec } from "@/lib/cardFly";
+import {
+  FLY_CARD_HEIGHT,
+  FLY_CARD_WIDTH,
+  type FlyRect,
+  type FlyingCardSpec,
+} from "@/lib/cardFly";
 import {
   cardsInEngineDealOrder,
   faceDownDealOrder,
@@ -81,27 +86,22 @@ export function buildTableDealFlySpecs(
 export const DEAL_FLY_DURATION_S = 1.2;
 export const DEAL_FLY_STAGGER_S = 0.13;
 
-const TABLE_FLY_W = 56;
-const TABLE_FLY_H = 80;
-const HAND_FLY_W = 72;
-const HAND_FLY_H = 104;
-
 function deckSourceRect(): FlyRect {
   const deck = document.querySelector('[data-fly-source="deck"]');
   if (deck) {
     const r = deck.getBoundingClientRect();
     return {
-      left: r.left + r.width / 2 - HAND_FLY_W / 2,
-      top: r.top + r.height / 2 - HAND_FLY_H / 2,
-      width: HAND_FLY_W,
-      height: HAND_FLY_H,
+      left: r.left + r.width / 2 - FLY_CARD_WIDTH / 2,
+      top: r.top + r.height / 2 - FLY_CARD_HEIGHT / 2,
+      width: FLY_CARD_WIDTH,
+      height: FLY_CARD_HEIGHT,
     };
   }
   return {
-    left: window.innerWidth / 2 - HAND_FLY_W / 2,
-    top: window.innerHeight * 0.42 - HAND_FLY_H / 2,
-    width: HAND_FLY_W,
-    height: HAND_FLY_H,
+    left: window.innerWidth / 2 - FLY_CARD_WIDTH / 2,
+    top: window.innerHeight * 0.42 - FLY_CARD_HEIGHT / 2,
+    width: FLY_CARD_WIDTH,
+    height: FLY_CARD_HEIGHT,
   };
 }
 
@@ -135,13 +135,13 @@ function handTargetFromRow(
   count: number,
 ): FlyRect {
   const r = row.getBoundingClientRect();
-  const totalW = count * HAND_FLY_W + Math.max(0, count - 1) * 8;
+  const totalW = count * FLY_CARD_WIDTH + Math.max(0, count - 1) * 8;
   const startX = r.left + r.width / 2 - totalW / 2;
   return {
     left: startX + index * HAND_CARD_STEP_PX,
-    top: r.top + r.height / 2 - HAND_FLY_H / 2,
-    width: HAND_FLY_W,
-    height: HAND_FLY_H,
+    top: r.top + r.height / 2 - FLY_CARD_HEIGHT / 2,
+    width: FLY_CARD_WIDTH,
+    height: FLY_CARD_HEIGHT,
   };
 }
 
@@ -152,10 +152,10 @@ function stockTargetRect(seat: number, stockIndex: number): FlyRect | null {
   const r = el.getBoundingClientRect();
   const offset = Math.min(stockIndex, 12) * 2;
   return {
-    left: r.left + r.width / 2 - HAND_FLY_W / 2 + offset,
-    top: r.top + r.height / 2 - HAND_FLY_H / 2 - offset,
-    width: HAND_FLY_W,
-    height: HAND_FLY_H,
+    left: r.left + r.width / 2 - FLY_CARD_WIDTH / 2 + offset,
+    top: r.top + r.height / 2 - FLY_CARD_HEIGHT / 2 - offset,
+    width: FLY_CARD_WIDTH,
+    height: FLY_CARD_HEIGHT,
   };
 }
 
@@ -179,15 +179,15 @@ export function buildSingleOpeningDealFlySpec(
       to,
       delay: 0,
       faceDown: true,
-      small: seat !== humanSeat,
+      stockSeat: seat,
     };
   }
 
   if (target === "down") {
     const to = targetRect(
       `[data-deal-target="seat-${seat}-slot-${item.slot}-down"]`,
-      TABLE_FLY_W,
-      TABLE_FLY_H,
+      FLY_CARD_WIDTH,
+      FLY_CARD_HEIGHT,
     );
     if (!to) return null;
     return {
@@ -197,14 +197,13 @@ export function buildSingleOpeningDealFlySpec(
       to,
       delay: 0,
       faceDown: true,
-      small: true,
     };
   }
 
   const to = targetRect(
     `[data-deal-target="seat-${seat}-slot-${item.slot}-up"]`,
-    TABLE_FLY_W,
-    TABLE_FLY_H,
+    FLY_CARD_WIDTH,
+    FLY_CARD_HEIGHT,
   );
   if (!to) return null;
   return {
@@ -214,7 +213,6 @@ export function buildSingleOpeningDealFlySpec(
     to,
     delay: 0,
     faceDown: true,
-    small: true,
   };
 }
 
@@ -293,8 +291,8 @@ export function buildOpeningDealFlySpecs(
         if (!card) continue;
         const to = targetRect(
           `[data-deal-target="seat-${player.seat}-slot-${slot}-${zone}"]`,
-          TABLE_FLY_W,
-          TABLE_FLY_H,
+          FLY_CARD_WIDTH,
+          FLY_CARD_HEIGHT,
         );
         if (!to) continue;
         specs.push({
@@ -304,13 +302,16 @@ export function buildOpeningDealFlySpecs(
           to,
           delay: 0,
           faceDown: true,
-          small: true,
         });
       }
     } else {
       const opponentSource =
         player.seat !== humanSeat
-          ? targetRect(`[data-fly-source="opponent-${player.seat}"]`, HAND_FLY_W, HAND_FLY_H)
+          ? targetRect(
+              `[data-fly-source="opponent-${player.seat}"]`,
+              FLY_CARD_WIDTH,
+              FLY_CARD_HEIGHT,
+            )
           : null;
 
       const handCards =
@@ -328,8 +329,8 @@ export function buildOpeningDealFlySpecs(
         let to =
           targetRect(
             `[data-deal-target="seat-${player.seat}-hand-${CSS.escape(card.id)}"]`,
-            HAND_FLY_W,
-            HAND_FLY_H,
+            FLY_CARD_WIDTH,
+            FLY_CARD_HEIGHT,
           ) ?? opponentSource;
 
         if (!to && handRow) {
@@ -347,7 +348,6 @@ export function buildOpeningDealFlySpecs(
           to,
           delay,
           faceDown: player.seat !== humanSeat,
-          small: player.seat !== humanSeat,
         });
         delay += DEAL_FLY_STAGGER_S;
       }
