@@ -31,6 +31,7 @@ export function PlayingCard({
   return (
     <motion.button
       type="button"
+      layout={layoutId ? true : undefined}
       layoutId={layoutId}
       onClick={onClick}
       disabled={!onClick}

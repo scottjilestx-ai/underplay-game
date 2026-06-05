@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  advanceUntilHuman,
   applyMove,
   chooseMove,
   createMatch,
@@ -17,7 +16,12 @@ import {
   type PlayerSetup,
 } from "@underplay/engine";
 import { playSfx, setMuted, setVolume } from "@/lib/audio";
+import { buildSlotMap, type SlotMap } from "@/lib/cardSlots";
+import { sortHand } from "@/lib/sortCards";
+import { DeckAnimation } from "./DeckAnimation";
+import { PlayerTableSlots } from "./PlayerTableSlots";
 import { PlayingCard } from "./PlayingCard";
+import { StackPile } from "./StackPile";
 
 const CPU_NAMES = ["Alex", "Jordan", "Riley", "Casey"];
 const CPU_PORTRAITS = [
@@ -27,6 +31,14 @@ const CPU_PORTRAITS = [
   "from-violet-700 to-violet-900",
 ];
 
+function initSlotMaps(state: GameState): Record<number, SlotMap> {
+  const maps: Record<number, SlotMap> = {};
+  for (const p of state.players) {
+    maps[p.seat] = buildSlotMap(p.faceDown, p.faceUp);
+  }
+  return maps;
+}
+
 export function GameApp() {
   const [screen, setScreen] = useState<"lobby" | "game">("lobby");
   const [playerCount, setPlayerCount] = useState(2);
@@ -35,13 +47,13 @@ export function GameApp() {
   const [state, setState] = useState<GameState | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [skipTarget, setSkipTarget] = useState<number | null>(null);
-  const [hideHand, setHideHand] = useState(false);
   const [muted, setMutedState] = useState(false);
   const [vol, setVol] = useState(0.6);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [lastEvent, setLastEvent] = useState("");
+  const [deckPhase, setDeckPhase] = useState<"shuffle" | "deal" | null>(null);
+  const slotMapsRef = useRef<Record<number, SlotMap>>({});
   const humanSeat = 0;
-  const prevRef = useRef<GameState | null>(null);
 
   useEffect(() => {
     setMuted(muted);
@@ -56,6 +68,18 @@ export function GameApp() {
     return () => mq.removeEventListener("change", fn);
   }, []);
 
+  const runDealAnimation = useCallback(() => {
+    if (reducedMotion) return;
+    setDeckPhase("shuffle");
+    playSfx("deal");
+    const t1 = setTimeout(() => setDeckPhase("deal"), 900);
+    const t2 = setTimeout(() => setDeckPhase(null), 2200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [reducedMotion]);
+
   const startGame = () => {
     const setups: PlayerSetup[] = [];
     setups.push({ name: "You", isCpu: false });
@@ -68,10 +92,12 @@ export function GameApp() {
       });
     }
     const g = createMatch(setups, undefined, Date.now());
-    setState(advanceUntilHuman(g));
+    slotMapsRef.current = initSlotMaps(g);
+    setState(g);
     setSelected([]);
     setScreen("game");
-    playSfx("deal");
+    setLastEvent("");
+    runDealAnimation();
   };
 
   const humanMoves = useMemo(() => {
@@ -101,7 +127,7 @@ export function GameApp() {
       const prev = state;
       const next = applyMove(state, move);
       detectSfx(prev, next, move);
-      setState(advanceUntilHuman(next));
+      setState(next);
       setSelected([]);
       setSkipTarget(null);
     },
@@ -112,42 +138,44 @@ export function GameApp() {
     if (!state || state.phase !== "playing") return;
     const p = state.players[state.currentSeat];
     if (!p.isCpu) return;
+
+    const delay = reducedMotion ? 80 : 750;
     const t = setTimeout(() => {
-      const move = chooseMove(state, state.currentSeat, p.difficulty ?? "medium");
+      const moves = legalMoves(state, state.currentSeat);
+      const move = chooseMove(state, state.currentSeat, p.difficulty ?? "medium") ?? moves[0];
       if (!move) return;
       const next = applyMove(state, move);
       detectSfx(state, next, move);
-      setState(advanceUntilHuman(next));
-    }, reducedMotion ? 50 : 650);
+      setState(next);
+    }, delay);
     return () => clearTimeout(t);
   }, [state, reducedMotion]);
 
-  useEffect(() => {
-    prevRef.current = state;
-  }, [state]);
-
   function detectSfx(prev: GameState, next: GameState, move: Move) {
-    const played = move.cardIds.map((id) => findInZones(prev.players[prev.currentSeat], id)).filter(Boolean);
-    if (played.some((c) => c?.kind === "clear") || next.stack.length === 0 && prev.stack.length > 0) {
-      playSfx("clear");
-      setLastEvent("Stack cleared");
+    const seat = prev.currentSeat;
+    const played = move.cardIds
+      .map((id) => findInZones(prev.players[seat], id))
+      .filter(Boolean);
+    const stillYourTurn = next.currentSeat === seat && seat === humanSeat && next.phase === "playing";
+
+    if (played.some((c) => c?.kind === "clear") || (next.stack.length === 0 && prev.stack.length > 0 && played[0]?.kind !== "skip")) {
+      playSfx(next.deadPile.length > prev.deadPile.length ? "tap" : "clear");
+      setLastEvent(next.stack.length === 0 && prev.stack.length > 0 ? "Tap-out! Play again." : "Stack cleared — play again.");
     } else if (played.some((c) => c?.kind === "skip")) {
       playSfx("skip");
-      setLastEvent("Skip played");
-    } else if (move.cardIds.some((id) => prev.players[prev.currentSeat].faceDown.some((c) => c.id === id))) {
+      setLastEvent(stillYourTurn ? "Skip played — your turn continues." : "Skip played.");
+    } else if (move.cardIds.some((id) => prev.players[seat].faceDown.some((c) => c.id === id))) {
       playSfx("flip");
-      setLastEvent("Face-down flipped");
-    } else if (next.deadPile.length > prev.deadPile.length && next.stack.length === 0) {
-      playSfx("tap");
-      setLastEvent("Tap-out!");
-    } else if (
-      next.players[prev.currentSeat].hand.length > prev.players[prev.currentSeat].hand.length
-    ) {
+      setLastEvent(stillYourTurn ? "Flipped — your turn continues." : "Face-down played.");
+    } else if (next.players[seat].hand.length > prev.players[seat].hand.length) {
       playSfx("pickup");
-      setLastEvent("Picked up pile");
+      setLastEvent("Higher play — pile to your hand. Play again.");
+    } else if (stillYourTurn) {
+      playSfx("play");
+      setLastEvent("Play again (extra turn).");
     } else {
       playSfx("play");
-      setLastEvent("Card played");
+      setLastEvent("Card played.");
     }
     if (next.phase === "roundOver" || next.phase === "matchOver") playSfx("win");
   }
@@ -210,6 +238,10 @@ export function GameApp() {
   const me = state.players[humanSeat];
   const T = topValue(state.stack);
   const myTurn = state.currentSeat === humanSeat && state.phase === "playing";
+  const activePlayer = state.players[state.currentSeat];
+  const sortedHand = sortHand(me.hand);
+  const mySlotMap = slotMapsRef.current[humanSeat] ?? buildSlotMap(me.faceDown, me.faceUp);
+  const dealing = deckPhase !== null;
 
   return (
     <div className="min-h-screen table-bg flex flex-col overflow-hidden">
@@ -217,7 +249,7 @@ export function GameApp() {
         <div>
           <span className="font-serif text-amber-100 text-lg">Underplay</span>
           <span className="ml-3 text-amber-200/60 text-sm">
-            Round {state.roundNumber} · T={T ?? "—"}
+            Round {state.roundNumber} · Top {T ?? "—"}
           </span>
         </div>
         <div className="flex items-center gap-3 text-sm text-amber-100/80">
@@ -236,56 +268,68 @@ export function GameApp() {
             disabled={muted}
           />
           {state.scores.map((s, i) => (
-            <span key={i} className={i === humanSeat ? "text-amber-300" : ""}>
+            <span key={i} className={i === humanSeat ? "text-amber-300 font-medium" : ""}>
               {state.players[i].name}: {s}
             </span>
           ))}
         </div>
       </header>
 
-      <div className="flex-1 relative p-4 flex flex-col">
-        <div className="flex justify-center gap-8 mb-4">
+      <AnimatePresence>
+        {state.phase === "playing" && (
+          <motion.div
+            key={myTurn ? "you" : activePlayer.seat}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className={`mx-4 mt-3 rounded-xl px-4 py-2 text-center text-sm font-semibold tracking-wide ${
+              myTurn
+                ? "bg-amber-400/25 text-amber-100 border border-amber-400/50 shadow-[0_0_24px_rgba(251,191,36,0.25)]"
+                : "bg-black/35 text-amber-200/90 border border-white/10"
+            }`}
+          >
+            {myTurn ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                Your turn
+                {lastEvent.includes("Play again") || lastEvent.includes("continues") ? (
+                  <span className="font-normal text-amber-200/80">— {lastEvent}</span>
+                ) : null}
+              </span>
+            ) : (
+              <span>
+                {activePlayer.name}
+                {activePlayer.isCpu ? " is playing" : "'s turn"}
+                …
+              </span>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex-1 relative p-4 flex flex-col min-h-0">
+        <DeckAnimation phase={deckPhase} reducedMotion={reducedMotion} />
+
+        <div className="flex justify-center gap-6 mb-2 flex-wrap">
           {state.players
             .filter((p) => p.seat !== humanSeat)
             .map((p) => (
               <OpponentPanel
                 key={p.seat}
                 player={p}
+                slotMap={slotMapsRef.current[p.seat] ?? buildSlotMap(p.faceDown, p.faceUp)}
                 active={state.currentSeat === p.seat}
                 portrait={CPU_PORTRAITS[p.seat % 4]}
+                reducedMotion={reducedMotion}
+                dealing={dealing}
               />
             ))}
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="flex-1 flex flex-col items-center justify-center relative">
           <p className="text-amber-200/50 text-xs mb-2 uppercase tracking-widest">Stack</p>
-          <div className="relative min-h-[7rem] flex items-center justify-center">
-            <AnimatePresence mode="popLayout">
-              {state.stack.length === 0 ? (
-                <motion.p
-                  key="empty"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-amber-200/40 text-sm italic"
-                >
-                  Empty — play anything
-                </motion.p>
-              ) : (
-                <div className="flex -space-x-10">
-                  {state.stack.slice(-5).map((c, i) => (
-                    <PlayingCard
-                      key={`${c.id}-${i}`}
-                      card={c}
-                      small={i < state.stack.slice(-5).length - 1}
-                      layoutId={c.id}
-                      reducedMotion={reducedMotion}
-                    />
-                  ))}
-                </div>
-              )}
-            </AnimatePresence>
-          </div>
-          <p className="mt-3 text-amber-100/60 text-sm h-5">{lastEvent}</p>
+          <StackPile stack={state.stack} reducedMotion={reducedMotion} />
+          <p className="mt-4 text-amber-100/60 text-sm min-h-[1.25rem] max-w-md text-center">{lastEvent}</p>
         </div>
 
         {(state.phase === "roundOver" || state.phase === "matchOver") && (
@@ -298,69 +342,54 @@ export function GameApp() {
                 setState(null);
               } else {
                 const n = startNextRound(state);
-                setState(advanceUntilHuman(n));
-                playSfx("deal");
+                slotMapsRef.current = initSlotMaps(n);
+                setState(n);
+                setLastEvent("");
+                runDealAnimation();
               }
             }}
           />
         )}
 
-        <div className="mt-auto">
-          {hideHand && myTurn && (
-            <div className="text-center mb-4">
-              <button
-                type="button"
-                onClick={() => setHideHand(false)}
-                className="px-6 py-2 rounded-full bg-amber-500 text-black font-medium"
+        <div className="mt-auto pt-2 border-t border-amber-900/20">
+          <p className="text-center text-amber-200/40 text-[10px] uppercase tracking-widest mb-2">
+            Your table
+          </p>
+          <PlayerTableSlots
+            faceDown={me.faceDown}
+            faceUp={me.faceUp}
+            slotMap={mySlotMap}
+            selected={selected}
+            interactive={myTurn && !dealing}
+            reducedMotion={reducedMotion}
+            dealing={dealing}
+            onSelect={(id) => toggleSelect(id)}
+          />
+
+          <div className="flex justify-center gap-1 flex-wrap pb-3 pt-4 px-2 min-h-[5.5rem]">
+            {sortedHand.map((c, i) => (
+              <motion.div
+                key={c.id}
+                layout
+                layoutId={`card-${c.id}`}
+                initial={dealing && !reducedMotion ? { opacity: 0, y: 40 } : false}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: dealing ? 0.5 + i * 0.04 : 0 }}
               >
-                Show my hand
-              </button>
-            </div>
-          )}
-          {!hideHand && (
-            <>
-              <div className="flex justify-center gap-1 flex-wrap mb-2 min-h-[5rem]">
-                {me.faceUp.map((c) => (
-                  <PlayingCard
-                    key={c.id}
-                    card={c}
-                    selected={selected.includes(c.id)}
-                    onClick={myTurn ? () => toggleSelect(c.id) : undefined}
-                    reducedMotion={reducedMotion}
-                  />
-                ))}
-              </div>
-              <div className="flex justify-center gap-1 flex-wrap mb-4">
-                {me.faceDown.map((c, i) => {
-                  const uncovered = me.faceDown.length - me.faceUp.length;
-                  const canFlip = i >= me.faceDown.length - uncovered;
-                  return (
-                    <PlayingCard
-                      key={c.id}
-                      faceDown
-                      selected={selected.includes(c.id)}
-                      onClick={myTurn && canFlip ? () => setSelected([c.id]) : undefined}
-                      reducedMotion={reducedMotion}
-                    />
-                  );
-                })}
-              </div>
-              <div className="flex justify-center gap-1 flex-wrap pb-4 px-2">
-                {me.hand.map((c) => (
-                  <PlayingCard
-                    key={c.id}
-                    card={c}
-                    selected={selected.includes(c.id)}
-                    onClick={myTurn ? () => toggleSelect(c.id) : undefined}
-                    reducedMotion={reducedMotion}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-          <div className="flex justify-center gap-3 pb-6">
+                <PlayingCard
+                  card={c}
+                  selected={selected.includes(c.id)}
+                  onClick={myTurn && !dealing ? () => toggleSelect(c.id) : undefined}
+                  reducedMotion={reducedMotion}
+                  layoutId={`card-${c.id}`}
+                />
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="flex justify-center gap-3 pb-6 flex-wrap items-center">
             {isSkipSelection && (
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2 items-center w-full justify-center mb-1">
                 <span className="text-amber-200/70 text-sm">Skip target:</span>
                 {state.players
                   .filter((p) => p.seat !== humanSeat && !p.pendingSkip)
@@ -376,7 +405,7 @@ export function GameApp() {
                   ))}
               </div>
             )}
-            {myTurn && (
+            {myTurn && !dealing && (
               <>
                 <button
                   type="button"
@@ -406,11 +435,6 @@ export function GameApp() {
                 </button>
               </>
             )}
-            {!myTurn && state.phase === "playing" && (
-              <p className="text-amber-200/70">
-                {state.players[state.currentSeat].name}&apos;s turn…
-              </p>
-            )}
           </div>
         </div>
       </div>
@@ -433,32 +457,51 @@ export function GameApp() {
 
 function OpponentPanel({
   player,
+  slotMap,
   active,
   portrait,
+  reducedMotion,
+  dealing,
 }: {
   player: GameState["players"][0];
+  slotMap: SlotMap;
   active: boolean;
   portrait: string;
+  reducedMotion?: boolean;
+  dealing?: boolean;
 }) {
   return (
     <div
-      className={`flex flex-col items-center gap-2 p-3 rounded-xl ${active ? "ring-2 ring-amber-400/80 bg-amber-500/10" : "bg-black/20"}`}
+      className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-shadow ${
+        active
+          ? "ring-2 ring-amber-400 bg-amber-500/15 shadow-[0_0_20px_rgba(251,191,36,0.2)]"
+          : "bg-black/25 opacity-90"
+      }`}
     >
       <div
-        className={`w-14 h-14 rounded-full bg-gradient-to-br ${portrait} shadow-lg border-2 border-amber-600/40`}
+        className={`w-12 h-12 rounded-full bg-gradient-to-br ${portrait} shadow-lg border-2 ${
+          active ? "border-amber-400" : "border-amber-600/30"
+        }`}
       />
-      <span className="text-amber-100 text-sm font-medium">{player.name}</span>
-      <span className="text-amber-200/50 text-xs">
-        Hand: {player.hand.length} · Up: {player.faceUp.length} · Down: {player.faceDown.length}
+      <span className={`text-sm font-medium ${active ? "text-amber-100" : "text-amber-200/80"}`}>
+        {player.name}
+        {active ? " ●" : ""}
       </span>
-      <div className="flex gap-0.5">
-        {player.faceUp.map((c) => (
-          <PlayingCard key={c.id} card={c} small reducedMotion />
-        ))}
-      </div>
-      {player.pendingSkip && (
-        <span className="text-rose-300 text-xs">Skip pending</span>
-      )}
+      <span className="text-amber-200/50 text-xs">
+        Hand {player.hand.length}
+      </span>
+      <PlayerTableSlots
+        faceDown={player.faceDown}
+        faceUp={player.faceUp}
+        slotMap={slotMap}
+        selected={[]}
+        interactive={false}
+        reducedMotion={reducedMotion}
+        dealing={dealing}
+        onSelect={() => {}}
+        compact
+      />
+      {player.pendingSkip && <span className="text-rose-300 text-xs">Skip pending</span>}
     </div>
   );
 }
@@ -486,14 +529,10 @@ function EndOverlay({
           {state.phase === "matchOver" ? "Match Over" : "Round Over"}
         </h2>
         <p className="text-amber-200/80 mb-4">
-          {state.roundScores
-            ? `Round points: ${state.roundScores.join(", ")}`
-            : ""}
+          {state.roundScores ? `Round points: ${state.roundScores.join(", ")}` : ""}
         </p>
         {state.phase === "matchOver" && (
-          <p className="text-xl text-amber-300 mb-6">
-            {won ? "You win!" : "Match complete"}
-          </p>
+          <p className="text-xl text-amber-300 mb-6">{won ? "You win!" : "Match complete"}</p>
         )}
         <button
           type="button"
@@ -507,10 +546,7 @@ function EndOverlay({
   );
 }
 
-function findInZones(
-  player: GameState["players"][0],
-  id: string,
-): Card | undefined {
+function findInZones(player: GameState["players"][0], id: string): Card | undefined {
   return (
     player.hand.find((c) => c.id === id) ??
     player.faceUp.find((c) => c.id === id) ??
