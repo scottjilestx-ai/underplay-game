@@ -739,7 +739,17 @@ export function GameApp() {
       setHiddenFlyIds(new Set(cardIds));
 
       requestAnimationFrame(() => {
-        const specs = buildFlySpecs(cardIds, cards, seat !== viewSeat ? seat : undefined);
+        const revealBeforeFlyIds = new Set(
+          cardIds.filter((id) =>
+            state.players[seat]?.faceDown.some((c) => c.id === id),
+          ),
+        );
+        const specs = buildFlySpecs(
+          cardIds,
+          cards,
+          seat !== viewSeat ? seat : undefined,
+          { revealBeforeFlyIds },
+        );
         if (!specs) {
           finishFly(cardIds, done);
           if (seat === viewSeat) setPlayAnimating(false);

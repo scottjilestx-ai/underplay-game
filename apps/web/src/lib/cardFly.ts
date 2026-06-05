@@ -18,7 +18,11 @@ export interface FlyingCardSpec {
   small?: boolean;
   /** Opening stock deal: increment pile when this card lands. */
   stockSeat?: number;
+  /** Face-down flip: reveal at source, then fly face-up to the stack. */
+  revealBeforeFly?: boolean;
 }
+
+export const FLY_FLIP_REVEAL_S = 0.3;
 
 /** Matches PlayingCard default size (4.5rem × 6.5rem at 16px root). */
 export const FLY_CARD_WIDTH = 72;
@@ -56,11 +60,17 @@ function rectFromElement(el: Element, index: number, total: number): FlyRect {
   };
 }
 
+export interface BuildFlySpecsOptions {
+  /** Card ids played from face-down table slots — flip before flying. */
+  revealBeforeFlyIds?: ReadonlySet<string>;
+}
+
 /** @param sourceSeat CPU/opponent seat — uses [data-fly-source] when card elements are hidden */
 export function buildFlySpecs(
   cardIds: string[],
   cards: Card[],
   sourceSeat?: number,
+  options?: BuildFlySpecsOptions,
 ): FlyingCardSpec[] | null {
   const targets = stackLandingRects(cardIds.length);
   if (!targets.length) return null;
@@ -79,15 +89,30 @@ export function buildFlySpecs(
       document.querySelector(`[data-play-card="${CSS.escape(id)}"]`) ?? fallbackSource;
     if (!el) continue;
     const from = rectFromElement(el, i, cardIds.length);
+    const revealBeforeFly = options?.revealBeforeFlyIds?.has(id) ?? false;
     specs.push({
       id,
       card,
       from,
       to: targets[i],
       delay: i * FLY_STAGGER_S,
+      faceDown: false,
+      revealBeforeFly,
     });
   }
   return specs.length ? specs : null;
+}
+
+export function playFlyEndDelayS(specs: FlyingCardSpec[]): number {
+  if (!specs.length) return 0;
+  return Math.max(
+    ...specs.map(
+      (s) =>
+        s.delay +
+        (s.revealBeforeFly ? FLY_FLIP_REVEAL_S : 0) +
+        FLY_DURATION_S,
+    ),
+  );
 }
 
 export function flyAnimationMs(cardCount: number): number {
