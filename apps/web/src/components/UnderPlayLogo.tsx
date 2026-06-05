@@ -11,7 +11,7 @@ interface Props {
 const SIZE_CLASS: Record<NonNullable<Props["size"]>, string> = {
   hero: "w-full max-w-md h-14",
   card: "w-full h-10",
-  header: "w-full h-8",
+  header: "h-8 w-[9.5rem] max-w-[38vw]",
 };
 
 /** SVG wordmark — follows active game theme colors. */

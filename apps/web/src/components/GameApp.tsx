@@ -23,7 +23,18 @@ import {
   type Move,
   type PlayerSetup,
 } from "@underplay/engine";
-import { loadAudioPrefs, playSfx, setMuted, setVolume, unlockAudio } from "@/lib/audio";
+import {
+  loadAudioPrefs,
+  playSfx,
+  primeAudioFromGesture,
+  setMuted,
+  setVolume,
+} from "@/lib/audio";
+import {
+  isRoundOrMatchWin,
+  resolveHigherConfirmSfx,
+  resolveMoveSfx,
+} from "@/lib/moveSfx";
 import { useTheme } from "@/context/ThemeProvider";
 import { UnderPlayLogo } from "./UnderPlayLogo";
 import { buildSlotMap, opponentTableWidthRem, type SlotMap } from "@/lib/cardSlots";
@@ -220,10 +231,27 @@ export function GameApp() {
       const next = !prev;
       setMuted(next);
       if (!next) {
-        void unlockAudio().then(() => playSfx("tap"));
+        primeAudioFromGesture();
+        playSfx("tap");
       }
       return next;
     });
+  }, []);
+
+  const playMoveSounds = useCallback(
+    (prev: GameState, next: GameState, move: Move) => {
+      primeAudioFromGesture();
+      const sfx = resolveMoveSfx(prev, next, move);
+      if (sfx) playSfx(sfx);
+      if (isRoundOrMatchWin(next)) playSfx("win");
+    },
+    [],
+  );
+
+  const playConfirmSounds = useCallback((prev: GameState, next: GameState) => {
+    primeAudioFromGesture();
+    playSfx(resolveHigherConfirmSfx(prev, next));
+    if (isRoundOrMatchWin(next)) playSfx("win");
   }, []);
 
   useEffect(() => {
@@ -795,7 +823,8 @@ export function GameApp() {
 
       if (isSkipMove(prev, seat, move)) {
         const next = applyMove(prev, move);
-        detectSfx(prev, next, move);
+        playMoveSounds(prev, next, move);
+        detectSfx(prev, next, move, false);
         patchState(next);
         registerOvercutHold(prev, next, move, cards);
         pushTurn(
@@ -809,10 +838,12 @@ export function GameApp() {
         return;
       }
 
+      playMoveSounds(prev, applyMove(prev, move), move);
+
       let applied: GameState | null = null;
       const commit = () => {
         applied = applyMove(prev, move);
-        detectSfx(prev, applied, move);
+        detectSfx(prev, applied, move, false);
         patchState(applied);
         setSelected([]);
         setSkipTarget(null);
@@ -828,7 +859,16 @@ export function GameApp() {
         );
       });
     },
-    [state, deckPhase, patchState, playAnimating, runWithFly, pushTurn, registerOvercutHold],
+    [
+      state,
+      deckPhase,
+      patchState,
+      playAnimating,
+      runWithFly,
+      pushTurn,
+      registerOvercutHold,
+      playMoveSounds,
+    ],
   );
 
   const runCpuTurn = useCallback(() => {
@@ -841,7 +881,7 @@ export function GameApp() {
 
     if (isAwaitingHigherConfirm(s)) {
       const next = resolveHigherConfirm(s, seat, p.difficulty ?? "medium");
-      detectHigherConfirmSfx(s, next);
+      detectHigherConfirmSfx(s, next, true);
       pushTurn(
         playerName,
         seat,
@@ -861,7 +901,7 @@ export function GameApp() {
 
     if (isSkipMove(s, seat, move)) {
       const next = applyMove(s, move);
-      detectSfx(s, next, move);
+      detectSfx(s, next, move, true);
       patchState(next);
       registerOvercutHold(s, next, move, cards);
       pushTurn(
@@ -876,7 +916,7 @@ export function GameApp() {
     let applied: GameState | null = null;
     const commit = () => {
       applied = applyMove(s, move);
-      detectSfx(s, applied, move);
+      detectSfx(s, applied, move, true);
       patchState(applied);
     };
 
@@ -909,7 +949,7 @@ export function GameApp() {
     runCpuTurn,
   ]);
 
-  function detectSfx(prev: GameState, next: GameState, move: Move) {
+  function detectSfx(prev: GameState, next: GameState, move: Move, playSound: boolean) {
     const seat = prev.currentSeat;
     const played = move.cardIds
       .map((id) => findInZones(prev.players[seat], id))
@@ -917,11 +957,16 @@ export function GameApp() {
     const stillYourTurn =
       next.currentSeat === seat && seat === viewSeat && next.phase === "playing";
 
+    if (playSound) {
+      const sfx = resolveMoveSfx(prev, next, move);
+      if (sfx) playSfx(sfx);
+      if (isRoundOrMatchWin(next)) playSfx("win");
+    }
+
     if (played.some((c) => c?.kind === "clear") || (next.stack.length === 0 && prev.stack.length > 0 && played[0]?.kind !== "skip")) {
       const flippedUndercut = move.cardIds.some((id) =>
         prev.players[seat].faceDown.some((c) => c.id === id),
       );
-      playSfx("clear");
       if (flippedUndercut && move.targetSeat != null) {
         const name = next.players[move.targetSeat]?.name ?? "opponent";
         setLastEvent(`Undercut flipped — stack sent to ${name}. Play again.`);
@@ -933,7 +978,6 @@ export function GameApp() {
         );
       }
     } else if (played.some((c) => c?.kind === "skip")) {
-      playSfx("skip");
       const targetName =
         move.targetSeat != null
           ? (next.players[move.targetSeat]?.name ?? "opponent")
@@ -944,7 +988,6 @@ export function GameApp() {
           : `Overcut on ${targetName} — skip pending.`,
       );
     } else if (move.cardIds.some((id) => prev.players[seat].faceDown.some((c) => c.id === id))) {
-      playSfx("flip");
       if (next.pendingHigherConfirm) {
         const rank = next.pendingHigherConfirm.rank;
         const handGrew = next.players[seat].hand.length > prev.players[seat].hand.length;
@@ -959,34 +1002,31 @@ export function GameApp() {
         setLastEvent("Face-down played.");
       }
     } else if (next.pendingHigherConfirm) {
-      playSfx("pickup");
       setLastEvent(
         `Higher play — ${pileToHandPhrase(prev, move)}. Add ${next.pendingHigherConfirm.rank}s, then Confirm.`,
       );
     } else if (stillYourTurn) {
-      playSfx("play");
       setLastEvent("Play again (extra turn).");
     } else {
-      playSfx("play");
       setLastEvent("Card played.");
     }
-    if (next.phase === "roundOver" || next.phase === "matchOver") playSfx("win");
   }
 
-  function detectHigherConfirmSfx(prev: GameState, next: GameState) {
+  function detectHigherConfirmSfx(prev: GameState, next: GameState, playSound: boolean) {
+    if (playSound) {
+      playSfx(resolveHigherConfirmSfx(prev, next));
+      if (isRoundOrMatchWin(next)) playSfx("win");
+    }
     if (
       next.stack.length === 0 &&
       prev.stack.length > 0 &&
       !isAwaitingHigherConfirm(next) &&
       next.currentSeat === prev.currentSeat
     ) {
-      playSfx("tap");
       setLastEvent("Tap-out! Play again from your hand.");
     } else if (next.stack.length > prev.stack.length) {
-      playSfx("play");
       setLastEvent("Cards added — Confirm when ready.");
     } else {
-      playSfx("play");
       setLastEvent("Turn complete.");
     }
   }
@@ -1055,58 +1095,65 @@ export function GameApp() {
           }}
         />
       )}
-      <header className="flex items-center justify-between gap-3 px-4 py-2 border-b border-theme-border bg-black/30 shrink-0">
-        <div className="min-w-0 flex items-center gap-3">
+      <header className="relative z-40 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-theme-border bg-black/30 shrink-0">
+        <div className="min-w-0 flex-1 flex items-center gap-2 sm:gap-3">
           <UnderPlayLogo themeId={themeId} size="header" className="shrink-0" />
-          <span className="text-theme-muted text-sm truncate">
+          <span className="text-theme-muted text-xs sm:text-sm truncate">
             Round {state.roundNumber} · Top {T ?? "—"}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-sm text-theme-ink/80 shrink-0 flex-wrap justify-end">
-          <button
-            type="button"
-            onClick={quitToMenu}
-            className="px-3 py-1.5 rounded-lg border border-theme-border bg-black/40 text-theme-ink/90 hover:bg-black/50 transition"
-          >
-            Quit
-          </button>
-          <button
-            type="button"
-            onClick={toggleMute}
-            aria-pressed={muted}
-            aria-label={muted ? "Unmute game sounds" : "Mute game sounds"}
-            title={muted ? "Unmute" : "Mute"}
-            className="px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-black/40 text-amber-200/90 hover:bg-amber-950/50 hover:text-amber-100 transition min-w-[2.5rem]"
-          >
-            {muted ? (
-              <span className="inline-block opacity-70" aria-hidden>
-                Muted
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-theme-ink overflow-x-auto max-w-[min(9rem,30vw)] sm:max-w-[14rem] md:max-w-[20rem] lg:max-w-none">
+            {state.scores.map((s, i) => (
+              <span key={i} className={`whitespace-nowrap shrink-0 ${i === viewSeat ? "text-amber-300 font-medium" : ""}`}>
+                {state.players[i].name}: {s}
               </span>
-            ) : (
-              <span aria-hidden>Sound</span>
-            )}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={vol}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setVol(v);
-              setVolume(v);
-              if (v > 0 && !muted) void unlockAudio().then(() => playSfx("tap"));
-            }}
-            className="w-20 accent-amber-400"
-            disabled={muted}
-            aria-label="Sound volume"
-          />
-          {state.scores.map((s, i) => (
-            <span key={i} className={i === viewSeat ? "text-amber-300 font-medium" : ""}>
-              {state.players[i].name}: {s}
-            </span>
-          ))}
+            ))}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-pressed={muted}
+              aria-label={muted ? "Unmute game sounds" : "Mute game sounds"}
+              title={muted ? "Unmute" : "Mute"}
+              className="px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-black/40 text-amber-200/90 hover:bg-amber-950/50 hover:text-amber-100 transition min-w-[2.5rem]"
+            >
+              {muted ? (
+                <span className="inline-block opacity-70" aria-hidden>
+                  Muted
+                </span>
+              ) : (
+                <span aria-hidden>Sound</span>
+              )}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={vol}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setVol(v);
+                setVolume(v);
+                if (v > 0 && !muted) {
+                  primeAudioFromGesture();
+                  playSfx("tap");
+                }
+              }}
+              className="w-14 sm:w-20 accent-amber-400"
+              disabled={muted}
+              aria-label="Sound volume"
+            />
+            <button
+              type="button"
+              onClick={quitToMenu}
+              className="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-black/50 text-amber-100 font-semibold hover:bg-amber-950/60 hover:border-amber-400/50 transition shrink-0"
+            >
+              Quit
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1188,9 +1235,11 @@ export function GameApp() {
                         if (!state || playAnimating) return;
                         const prev = state;
                         const playerName = prev.players[prev.currentSeat].name;
+                        const nextPreview = confirmHigherPlay(prev);
+                        playConfirmSounds(prev, nextPreview);
                         const commit = () => {
                           const next = confirmHigherPlay(prev);
-                          detectHigherConfirmSfx(prev, next);
+                          detectHigherConfirmSfx(prev, next, false);
                           pushTurn(
                             playerName,
                             prev.currentSeat,
@@ -1345,9 +1394,11 @@ export function GameApp() {
                         const prev = state;
                         const playerName = prev.players[prev.currentSeat].name;
                         const ids = [...selected];
+                        const nextPreview = extendHigherPlay(prev, ids);
+                        playConfirmSounds(prev, nextPreview);
                         const commit = () => {
                           const next = extendHigherPlay(prev, ids);
-                          detectHigherConfirmSfx(prev, next);
+                          detectHigherConfirmSfx(prev, next, false);
                           patchState(next);
                           setSelected([]);
                         };
@@ -1372,9 +1423,11 @@ export function GameApp() {
                         if (!state || playAnimating) return;
                         const prev = state;
                         const playerName = prev.players[prev.currentSeat].name;
+                        const nextPreview = confirmHigherPlay(prev);
+                        playConfirmSounds(prev, nextPreview);
                         const commit = () => {
                           const next = confirmHigherPlay(prev);
-                          detectHigherConfirmSfx(prev, next);
+                          detectHigherConfirmSfx(prev, next, false);
                           pushTurn(
                             playerName,
                             prev.currentSeat,
