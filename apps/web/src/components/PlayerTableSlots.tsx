@@ -17,6 +17,10 @@ interface Props {
   compact?: boolean;
 }
 
+/** Peek of down card: up shares center anchor, nudged slightly up-right (px, stays in slot). */
+const UP_NUDGE = { x: 5, y: -5 };
+const UP_NUDGE_COMPACT = { x: 4, y: -4 };
+
 export function PlayerTableSlots({
   faceDown,
   faceUp,
@@ -28,11 +32,13 @@ export function PlayerTableSlots({
   onSelect,
   compact,
 }: Props) {
-  const slotW = compact ? "w-12" : "w-[4.75rem]";
-  const slotH = compact ? "h-[4.5rem]" : "h-[7.25rem]";
+  const slotW = compact ? "w-[3.75rem]" : "w-[4.85rem]";
+  const slotH = compact ? "h-[5.25rem]" : "h-[7rem]";
+  const gap = compact ? "gap-3" : "gap-5";
+  const nudge = compact ? UP_NUDGE_COMPACT : UP_NUDGE;
 
   return (
-    <div className={`flex gap-2 sm:gap-3 justify-center ${compact ? "" : "px-2"}`}>
+    <div className={`flex ${gap} justify-center px-2`}>
       {Array.from({ length: TABLE_SLOTS }, (_, slot) => {
         const down = cardInSlot(faceDown, slotMap, slot);
         const up = cardInSlot(faceUp, slotMap, slot);
@@ -41,13 +47,13 @@ export function PlayerTableSlots({
         return (
           <motion.div
             key={slot}
-            className={`relative ${slotW} ${slotH} shrink-0`}
-            initial={dealing && !reducedMotion ? { opacity: 0, y: -60, scale: 0.85 } : false}
+            className={`relative ${slotW} ${slotH} shrink-0 overflow-visible`}
+            initial={dealing && !reducedMotion ? { opacity: 0, y: -40, scale: 0.9 } : false}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ delay: dealing ? 0.08 * slot + 0.2 : 0, duration: 0.35, ease: "easeOut" }}
           >
             {down && (
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-0">
+              <div className="absolute bottom-0 left-1/2 z-0 -translate-x-1/2">
                 <PlayingCard
                   faceDown
                   small={compact}
@@ -60,7 +66,12 @@ export function PlayerTableSlots({
               </div>
             )}
             {up && (
-              <div className="absolute bottom-4 left-6 z-10">
+              <div
+                className="absolute bottom-0 left-1/2 z-10"
+                style={{
+                  transform: `translate(calc(-50% + ${nudge.x}px), ${nudge.y}px)`,
+                }}
+              >
                 <PlayingCard
                   card={up}
                   small={compact}
