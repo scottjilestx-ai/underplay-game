@@ -50,6 +50,17 @@ function cardsFromIds(state: GameState, seat: number, cardIds: string[]): Card[]
     .filter((c): c is Card => !!c);
 }
 
+/** Cards scooped from under the played card(s) on a higher play (engine: rest of stack → hand). */
+export function countPileCardsToHand(prev: GameState, move: Move): number {
+  return Math.max(0, prev.stack.length - move.cardIds.length);
+}
+
+export function pileToHandPhrase(prev: GameState, move: Move): string {
+  const n = countPileCardsToHand(prev, move);
+  if (n === 0) return "pile to hand";
+  return n === 1 ? "1 card to hand" : `${n} cards to hand`;
+}
+
 /** Second line for Last 4 Plays — what actually happened (no player name). */
 export function turnLogMoveAction(
   prev: GameState,
@@ -81,14 +92,14 @@ export function turnLogMoveAction(
     if (next.pendingHigherConfirm) {
       const handGrew = next.players[seat].hand.length > prev.players[seat].hand.length;
       if (handGrew) {
-        return `${flip} — higher than ${formatTopConstraint(T)}, pile to hand`;
+        return `${flip} — higher than ${formatTopConstraint(T)}, ${pileToHandPhrase(prev, move)}`;
       }
       return `${flip} — add matching ${cards}, then Confirm`;
     }
     return `${flip} — safe play`;
   }
   if (next.pendingHigherConfirm) {
-    return `${phrasePlayedCards(played)} — higher than ${formatTopConstraint(T)}, pile to hand`;
+    return `${phrasePlayedCards(played)} — higher than ${formatTopConstraint(T)}, ${pileToHandPhrase(prev, move)}`;
   }
   if (next.stack.length === 0 && prev.stack.length > 0 && played[0]?.kind === "play") {
     return `tap-out with ${cards} — play again`;

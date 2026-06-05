@@ -35,6 +35,7 @@ import {
   turnLogHigherExtension,
   turnLogHigherExtensionResult,
   turnLogMoveAction,
+  pileToHandPhrase,
   type TurnLogTurn,
 } from "@/lib/turnLog";
 import { DeckAnimation } from "./DeckAnimation";
@@ -861,7 +862,7 @@ export function GameApp() {
         const handGrew = next.players[seat].hand.length > prev.players[seat].hand.length;
         setLastEvent(
           handGrew
-            ? `Higher flip — pile to your hand. Add ${rank}s from hand, then Confirm.`
+            ? `Higher flip — ${pileToHandPhrase(prev, move)}. Add ${rank}s from hand, then Confirm.`
             : `Flipped a ${rank} onto the stack. Add other ${rank}s from hand, then Confirm.`,
         );
       } else if (stillYourTurn) {
@@ -872,7 +873,7 @@ export function GameApp() {
     } else if (next.pendingHigherConfirm) {
       playSfx("pickup");
       setLastEvent(
-        `Higher play — pile to your hand. Add ${next.pendingHigherConfirm.rank}s, then Confirm.`,
+        `Higher play — ${pileToHandPhrase(prev, move)}. Add ${next.pendingHigherConfirm.rank}s, then Confirm.`,
       );
     } else if (stillYourTurn) {
       playSfx("play");
