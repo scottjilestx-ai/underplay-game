@@ -7,7 +7,14 @@ import path from "path";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 import { buildSketchfabSpecialFaces } from "./sketchfab-special-faces.mjs";
-import { tightBounds } from "./sketchfab-trim.mjs";
+import {
+  DECK_FACE_W,
+  DECK_FACE_H,
+  DECK_CARD_ASPECT,
+  INK_THRESHOLD_CREAM_STOCK,
+  finalizeEdgeToEdgeBuffer,
+  auditDeckMargins,
+} from "./deck-atlas-trim.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = path.join(__dirname, "..");
@@ -22,9 +29,9 @@ const TEXTURES_DIR = path.join(
 );
 const OUT_DIR = path.join(WEB_ROOT, "public", "cards", "decks", "sketchfab");
 
-const FACE_W = 360;
-const FACE_H = 520;
-const CARD_ASPECT = FACE_W / FACE_H;
+const FACE_W = DECK_FACE_W;
+const FACE_H = DECK_FACE_H;
+const CARD_ASPECT = DECK_CARD_ASPECT;
 
 /** Atlas layout: 13×4 faces (top), gap ~y 2080–2304, 13×4 backs (bottom). */
 const ATLAS_W = 4096;
@@ -74,29 +81,26 @@ async function findBaseColorPath() {
   return path.join(TEXTURES_DIR, hit);
 }
 
-function finalizeEdgeToEdgeBuffer(data, width, height, channels) {
-  const bounds = tightBounds(data, width, height, {
-    /** Cream stock is ~235–245 lum; crop to printed art so cards fill UI slots. */
-    inkThreshold: 220,
-    capAspect: CARD_ASPECT,
-  });
-  return sharp(data, {
-    raw: { width, height, channels },
-  })
-    .extract(bounds)
-    .resize(FACE_W, FACE_H, { fit: "cover", position: "centre" });
-}
-
 async function writeTrimmedJpeg(outPath, input, extract) {
   const { data, info } = await sharp(input).extract(extract).raw().toBuffer({ resolveWithObject: true });
-  await finalizeEdgeToEdgeBuffer(data, info.width, info.height, info.channels)
+  await finalizeEdgeToEdgeBuffer(data, info.width, info.height, info.channels, {
+    inkThreshold: INK_THRESHOLD_CREAM_STOCK,
+    capAspect: CARD_ASPECT,
+    outW: FACE_W,
+    outH: FACE_H,
+  })
     .jpeg({ quality: 88, mozjpeg: true })
     .toFile(outPath);
 }
 
 async function finalizeJpegFile(outPath) {
   const { data, info } = await sharp(outPath).raw().toBuffer({ resolveWithObject: true });
-  await finalizeEdgeToEdgeBuffer(data, info.width, info.height, info.channels)
+  await finalizeEdgeToEdgeBuffer(data, info.width, info.height, info.channels, {
+    inkThreshold: INK_THRESHOLD_CREAM_STOCK,
+    capAspect: CARD_ASPECT,
+    outW: FACE_W,
+    outH: FACE_H,
+  })
     .jpeg({ quality: 88, mozjpeg: true })
     .toFile(outPath);
 }
@@ -124,6 +128,12 @@ async function main() {
   }
   console.log("  faces/clear.jpg (sketchfab special)");
   console.log("  faces/skip.jpg (sketchfab special)");
+
+  console.log("Margin audit (art should be ~90%+ width):");
+  await auditDeckMargins([
+    path.join(OUT_DIR, "back.jpg"),
+    path.join(facesDir, "08.jpg"),
+  ]);
 
   console.log("Done — deck ready at public/cards/decks/sketchfab/");
 }

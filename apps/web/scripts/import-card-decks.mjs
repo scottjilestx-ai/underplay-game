@@ -1,6 +1,9 @@
 /**
  * Builds raster card decks under public/cards/decks/{id}/
  * Run from apps/web: node scripts/import-card-decks.mjs
+ *
+ * Texture-atlas decks (e.g. sketchfab) use scripts/deck-atlas-trim.mjs — see its
+ * checklist before baking; vector/Kenney sources here already fill 360×520.
  */
 import fs from "fs/promises";
 import path from "path";
