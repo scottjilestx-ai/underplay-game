@@ -1,4 +1,6 @@
-import type { Card, CpuDifficulty } from "@underplay/engine";
+import type { Card, CpuDifficulty, FirstPlayerChoice } from "@underplay/engine";
+
+export type { FirstPlayerChoice };
 
 export type GameMode = "cpu" | "hotseat";
 export type StackDisplayMode = "full" | "lastPlay" | "none";
@@ -46,6 +48,8 @@ export interface GameSetupConfig {
   opponents: OpponentSetup[];
   playToScore: PlayToScore;
   stackDisplay: StackDisplayMode;
+  /** Who opens the first round — seat 0 is the human setup player. */
+  firstPlayer: FirstPlayerChoice;
 }
 
 export function defaultOpponents(count: number): OpponentSetup[] {

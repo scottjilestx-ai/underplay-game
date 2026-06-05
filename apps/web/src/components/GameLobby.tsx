@@ -13,6 +13,7 @@ import {
   STACK_DISPLAY_OPTIONS,
   storeDisplayName,
   type GameMode,
+  type FirstPlayerChoice,
   type GameSetupConfig,
   type OpponentSetup,
   type PlayToScore,
@@ -76,10 +77,18 @@ export function GameLobby({ startError, onStart }: Props) {
   const [opponents, setOpponents] = useState<OpponentSetup[]>(() => defaultOpponents(3));
   const [playToScore, setPlayToScore] = useState<PlayToScore>(250);
   const [stackDisplay, setStackDisplay] = useState<StackDisplayMode>("full");
+  const [firstPlayer, setFirstPlayer] = useState<FirstPlayerChoice>("random");
 
   useEffect(() => {
     setPlayerName(loadStoredDisplayName());
   }, []);
+
+  useEffect(() => {
+    if (firstPlayer === "random") return;
+    if (typeof firstPlayer === "number" && firstPlayer > opponentCount) {
+      setFirstPlayer("random");
+    }
+  }, [opponentCount, firstPlayer]);
 
   const syncOpponentRows = useCallback((count: number) => {
     setOpponents((prev) => {
@@ -117,6 +126,7 @@ export function GameLobby({ startError, onStart }: Props) {
       opponents: opponents.slice(0, opponentCount),
       playToScore,
       stackDisplay,
+      firstPlayer,
     });
   };
 
@@ -237,6 +247,37 @@ export function GameLobby({ startError, onStart }: Props) {
                   </div>
                 )}
               </div>
+            ))}
+          </div>
+
+          <FieldLabel>Who plays first</FieldLabel>
+          <div className="flex flex-wrap gap-2 mb-6">
+            <Pill
+              value={"random" as const}
+              selected={firstPlayer === "random"}
+              onSelect={setFirstPlayer}
+              solidWhenSelected
+            >
+              Random
+            </Pill>
+            <Pill
+              value={0 as const}
+              selected={firstPlayer === 0}
+              onSelect={setFirstPlayer}
+              solidWhenSelected
+            >
+              {playerName.trim() || "You"}
+            </Pill>
+            {opponents.slice(0, opponentCount).map((opp, i) => (
+              <Pill
+                key={i}
+                value={(i + 1) as number}
+                selected={firstPlayer === i + 1}
+                onSelect={setFirstPlayer}
+                solidWhenSelected
+              >
+                {opp.name.trim() || `Player ${i + 2}`}
+              </Pill>
             ))}
           </div>
 

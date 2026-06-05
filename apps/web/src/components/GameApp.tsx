@@ -583,7 +583,10 @@ export function GameApp() {
         });
       }
       const rules = { ...DEFAULT_RULES, endingScore: config.playToScore };
-      const g = normalizeGameState(createMatch(setups, rules, Date.now()));
+      const seed = Date.now();
+      const g = normalizeGameState(
+        createMatch(setups, rules, seed, config.firstPlayer),
+      );
       slotMapsRef.current = initSlotMaps(g);
       for (const t of dealTimersRef.current) clearTimeout(t);
       dealTimersRef.current = [];
@@ -591,7 +594,7 @@ export function GameApp() {
       setState(g);
       setSelected([]);
       setScreen("game");
-      setLastEvent("");
+      setLastEvent(`${g.players[g.currentSeat].name} plays first.`);
       setTurnLog([]);
       setDealtDownIds(new Set());
       setDealtUpIds(new Set());
