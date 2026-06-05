@@ -244,7 +244,7 @@ export function GameApp() {
   const dealing = deckPhase !== null;
 
   return (
-    <div className="min-h-screen table-bg flex flex-col overflow-hidden">
+    <div className="min-h-screen table-bg flex flex-col overflow-x-hidden">
       <header className="flex items-center justify-between px-4 py-2 border-b border-amber-900/30 bg-black/30">
         <div>
           <span className="font-serif text-amber-100 text-lg">Underplay</span>
@@ -307,10 +307,10 @@ export function GameApp() {
         )}
       </AnimatePresence>
 
-      <div className="flex-1 relative p-4 flex flex-col min-h-0">
+      <div className="flex-1 relative flex flex-col min-h-0 overflow-y-auto">
         <DeckAnimation phase={deckPhase} reducedMotion={reducedMotion} />
 
-        <div className="flex justify-center gap-6 mb-2 flex-wrap">
+        <div className="shrink-0 flex justify-center gap-6 py-2 px-4 flex-wrap">
           {state.players
             .filter((p) => p.seat !== humanSeat)
             .map((p) => (
@@ -326,10 +326,12 @@ export function GameApp() {
             ))}
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center relative">
+        <div className="shrink-0 flex flex-col items-center justify-center py-3 min-h-[8.5rem]">
           <p className="text-amber-200/50 text-xs mb-2 uppercase tracking-widest">Stack</p>
           <StackPile stack={state.stack} reducedMotion={reducedMotion} />
-          <p className="mt-4 text-amber-100/60 text-sm min-h-[1.25rem] max-w-md text-center">{lastEvent}</p>
+          <p className="mt-3 text-amber-100/60 text-sm min-h-[1.25rem] max-w-md text-center px-4">
+            {lastEvent}
+          </p>
         </div>
 
         {(state.phase === "roundOver" || state.phase === "matchOver") && (
@@ -351,8 +353,8 @@ export function GameApp() {
           />
         )}
 
-        <div className="mt-auto pt-2 border-t border-amber-900/20">
-          <p className="text-center text-amber-200/40 text-[10px] uppercase tracking-widest mb-2">
+        <div className="shrink-0 mt-auto pt-2 border-t border-amber-900/30 bg-black/15 backdrop-blur-sm">
+          <p className="text-center text-amber-200/40 text-[10px] uppercase tracking-widest mb-2 pt-2">
             Your table
           </p>
           <PlayerTableSlots
@@ -366,28 +368,35 @@ export function GameApp() {
             onSelect={(id) => toggleSelect(id)}
           />
 
-          <div className="flex justify-center gap-1 flex-wrap pb-3 pt-4 px-2 min-h-[5.5rem]">
-            {sortedHand.map((c, i) => (
-              <motion.div
-                key={c.id}
-                layout
-                layoutId={`card-${c.id}`}
-                initial={dealing && !reducedMotion ? { opacity: 0, y: 40 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: dealing ? 0.5 + i * 0.04 : 0 }}
-              >
-                <PlayingCard
-                  card={c}
-                  selected={selected.includes(c.id)}
-                  onClick={myTurn && !dealing ? () => toggleSelect(c.id) : undefined}
-                  reducedMotion={reducedMotion}
+          <p className="text-center text-amber-200/40 text-[10px] uppercase tracking-widest mt-4 mb-2">
+            Your hand ({sortedHand.length})
+          </p>
+          <div className="flex justify-center gap-1 flex-wrap px-2 pb-2 min-h-[6.75rem]">
+            {sortedHand.length === 0 ? (
+              <p className="text-amber-200/50 text-sm italic py-4">No cards in hand</p>
+            ) : (
+              sortedHand.map((c, i) => (
+                <motion.div
+                  key={c.id}
+                  layout
                   layoutId={`card-${c.id}`}
-                />
-              </motion.div>
-            ))}
+                  initial={dealing && !reducedMotion ? { opacity: 0, y: 24 } : false}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: dealing ? 0.35 + i * 0.03 : 0, duration: 0.25 }}
+                >
+                  <PlayingCard
+                    card={c}
+                    selected={selected.includes(c.id)}
+                    onClick={myTurn && !dealing ? () => toggleSelect(c.id) : undefined}
+                    reducedMotion={reducedMotion}
+                    layoutId={`card-${c.id}`}
+                  />
+                </motion.div>
+              ))
+            )}
           </div>
 
-          <div className="flex justify-center gap-3 pb-6 flex-wrap items-center">
+          <div className="flex justify-center gap-3 pb-5 pt-1 flex-wrap items-center">
             {isSkipSelection && (
               <div className="flex gap-2 items-center w-full justify-center mb-1">
                 <span className="text-amber-200/70 text-sm">Skip target:</span>
