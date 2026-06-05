@@ -76,13 +76,13 @@ function CardFlipAtSource({
           className="absolute inset-0"
           style={{ backfaceVisibility: "hidden", transform: "rotateY(0deg)" }}
         >
-          <CardFaceContent card={card} faceDown deckId={deckId} />
+          <CardFaceContent card={card} faceDown={false} deckId={deckId} />
         </div>
         <div
           className="absolute inset-0"
           style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
-          <CardFaceContent card={card} faceDown={false} deckId={deckId} />
+          <CardFaceContent card={card} faceDown deckId={deckId} />
         </div>
       </div>
     </motion.div>
