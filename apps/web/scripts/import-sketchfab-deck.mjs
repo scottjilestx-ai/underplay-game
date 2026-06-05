@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
+import { buildSketchfabSpecialFaces } from "./sketchfab-special-faces.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = path.join(__dirname, "..");
@@ -19,7 +20,7 @@ const TEXTURES_DIR = path.join(
   "textures",
 );
 const OUT_DIR = path.join(WEB_ROOT, "public", "cards", "decks", "sketchfab");
-const BICYCLE_FACES = path.join(WEB_ROOT, "public", "cards", "decks", "bicycle", "faces");
+
 
 const FACE_W = 360;
 const FACE_H = 520;
@@ -100,10 +101,10 @@ async function main() {
   await writeJpeg(path.join(OUT_DIR, "back.jpg"), atlasPath, backExtract());
   console.log("  back.jpg");
 
-  for (const name of ["clear.jpg", "skip.jpg"]) {
-    await fs.copyFile(path.join(BICYCLE_FACES, name), path.join(facesDir, name));
-    console.log(`  faces/${name} (from bicycle)`);
-  }
+  const textureSample = path.join(facesDir, "08.jpg");
+  await buildSketchfabSpecialFaces(facesDir, textureSample);
+  console.log("  faces/clear.jpg (sketchfab special)");
+  console.log("  faces/skip.jpg (sketchfab special)");
 
   console.log("Done — deck ready at public/cards/decks/sketchfab/");
 }
