@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { loadStoredDisplayName, storeDisplayName } from "@/lib/gameSetup";
+import { useTheme } from "@/context/ThemeProvider";
+import { UnderPlayLogo } from "./UnderPlayLogo";
+import { ThemeSelector } from "./ThemeSelector";
 
 function randomRoomCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -13,6 +16,7 @@ function randomRoomCode(): string {
 }
 
 export function OnlineLobby() {
+  const { themeId } = useTheme();
   const [name, setName] = useState("You");
 
   useEffect(() => {
@@ -69,15 +73,19 @@ export function OnlineLobby() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full rounded-2xl bg-black/40 backdrop-blur-md border border-amber-500/20 p-8 shadow-2xl"
+        className="max-w-md w-full rounded-2xl bg-theme-panel backdrop-blur-md border border-theme-border p-8 shadow-2xl"
       >
         <Link
           href="/"
-          className="text-amber-200/50 text-sm hover:text-amber-200/80 transition mb-6 inline-block"
+          className="text-theme-muted text-sm hover:text-theme-ink transition mb-4 inline-block"
         >
           ← Home
         </Link>
-        <h1 className="font-serif text-3xl text-amber-100 tracking-tight mb-1">
+        <div className="max-w-[11rem] mb-4">
+          <UnderPlayLogo variant={themeId} size="card" />
+        </div>
+        <ThemeSelector compact className="mb-6" />
+        <h1 className="font-serif text-3xl text-theme-ink tracking-tight mb-1">
           Play online
         </h1>
         <p className="text-amber-200/65 text-sm mb-6">

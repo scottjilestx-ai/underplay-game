@@ -1,43 +1,33 @@
 "use client";
 
 import Image from "next/image";
+import {
+  FEATURED_LOGO_VARIANTS,
+  LOGO_SRC,
+  LOGO_VARIANT_LABELS,
+  type LogoVariant,
+} from "@/lib/themes";
 
-export type LogoVariant = "acdc" | "kiss" | "metallica" | "queen" | "stones";
-
-const VARIANT_LABELS: Record<LogoVariant, string> = {
-  acdc: "High voltage (AC/DC)",
-  kiss: "Arena chrome (KISS)",
-  metallica: "Thrash metal (Metallica)",
-  queen: "Arena royalty (Queen)",
-  stones: "Classic rock (Rolling Stones)",
-};
-
-const LOGO_SRC: Record<LogoVariant, string> = {
-  acdc: "/logos/acdc.jpg",
-  kiss: "/logos/kiss.jpg",
-  metallica: "/logos/metallica.jpg",
-  queen: "/logos/queen.jpg",
-  stones: "/logos/stones.jpg",
-};
+export type { LogoVariant };
 
 export function logoVariantLabel(v: LogoVariant): string {
-  return VARIANT_LABELS[v];
+  return LOGO_VARIANT_LABELS[v];
 }
 
-export const LOGO_VARIANTS: LogoVariant[] = [
-  "acdc",
-  "kiss",
-  "metallica",
-  "queen",
-  "stones",
-];
+export const LOGO_VARIANTS: LogoVariant[] = FEATURED_LOGO_VARIANTS;
 
 interface Props {
   variant: LogoVariant;
-  size?: "hero" | "card";
+  size?: "hero" | "card" | "header";
   className?: string;
   priority?: boolean;
 }
+
+const SIZE_CLASS: Record<NonNullable<Props["size"]>, string> = {
+  hero: "max-w-2xl aspect-[2.4/1]",
+  card: "aspect-[2.2/1]",
+  header: "w-[7.5rem] h-8 aspect-auto",
+};
 
 export function UnderPlayLogo({
   variant,
@@ -46,17 +36,25 @@ export function UnderPlayLogo({
   priority = false,
 }: Props) {
   const hero = size === "hero";
+  const header = size === "header";
+
   return (
     <div
-      className={`relative w-full ${hero ? "max-w-2xl aspect-[2.4/1]" : "aspect-[2.2/1]"} ${className}`}
+      className={`relative ${header ? SIZE_CLASS.header : `w-full ${SIZE_CLASS[size]}`} ${className}`}
     >
       <Image
         src={LOGO_SRC[variant]}
-        alt={`UnderPlay logo, ${VARIANT_LABELS[variant]} style`}
+        alt={`UnderPlay logo, ${LOGO_VARIANT_LABELS[variant]} style`}
         fill
         priority={priority}
-        sizes={hero ? "(max-width: 768px) 100vw, 672px" : "(max-width: 640px) 50vw, 320px"}
-        className="object-contain object-center drop-shadow-[0_8px_32px_rgba(0,0,0,0.55)]"
+        sizes={
+          header
+            ? "120px"
+            : hero
+              ? "(max-width: 768px) 100vw, 672px"
+              : "(max-width: 640px) 50vw, 320px"
+        }
+        className="object-contain object-left drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)]"
       />
     </div>
   );

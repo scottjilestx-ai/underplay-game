@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BRAND_NAME } from "@/lib/brand";
+import { ThemeProvider } from "@/context/ThemeProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased h-full overflow-hidden">{children}</body>
+      <body className="antialiased h-full overflow-hidden">
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

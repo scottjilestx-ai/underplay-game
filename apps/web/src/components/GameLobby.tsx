@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { CpuDifficulty } from "@underplay/engine";
-import { BRAND_NAME } from "@/lib/brand";
+import { useTheme } from "@/context/ThemeProvider";
+import { UnderPlayLogo } from "./UnderPlayLogo";
+import { ThemeSelector } from "./ThemeSelector";
 import {
   defaultOpponents,
   loadStoredDisplayName,
@@ -67,6 +69,7 @@ const CPU_DIFFICULTY_OPTIONS: { id: CpuDifficulty; label: string }[] = [
 ];
 
 export function GameLobby({ startError, onStart }: Props) {
+  const { themeId } = useTheme();
   const [mode, setMode] = useState<GameMode>("cpu");
   const [playerName, setPlayerName] = useState("You");
   const [opponentCount, setOpponentCount] = useState(3);
@@ -120,10 +123,13 @@ export function GameLobby({ startError, onStart }: Props) {
   const stackHint = STACK_DISPLAY_OPTIONS.find((o) => o.id === stackDisplay)?.hint;
 
   return (
-    <div className="min-h-[100dvh] bg-black flex flex-col items-center p-6 overflow-y-auto">
-      <div className="w-full max-w-lg text-center mb-5 shrink-0">
-        <h1 className="text-3xl font-bold text-white tracking-tight">{BRAND_NAME}</h1>
-        <p className="text-zinc-500 text-sm mt-1">
+    <div className="min-h-[100dvh] lobby-bg flex flex-col items-center p-6 overflow-y-auto">
+      <div className="w-full max-w-lg mb-5 shrink-0">
+        <div className="max-w-xs mx-auto mb-3">
+          <UnderPlayLogo variant={themeId} size="card" priority />
+        </div>
+        <ThemeSelector className="flex justify-center" compact />
+        <p className="text-theme-muted text-sm mt-3 text-center">
           Play to the lowest score. Don&apos;t get stuck holding the pile.
         </p>
       </div>

@@ -1,6 +1,8 @@
 import type { Card } from "@underplay/engine";
+import type { GameThemeId } from "@/lib/themes";
+import { usesThemedSvgDeck } from "@/lib/themes";
 
-/** Grok-generated Bicycle-style face art keyed by card value (2–13) or special kind */
+/** Default Bicycle-style JPEG deck (fallback / legacy). */
 export function cardFaceSrc(card: Card): string {
   if (card.kind === "clear") return "/cards/faces/clear.jpg";
   if (card.kind === "skip") return "/cards/faces/skip.jpg";
@@ -10,3 +12,7 @@ export function cardFaceSrc(card: Card): string {
 }
 
 export const CARD_BACK_SRC = "/cards/bicycle-back.jpg";
+
+export function shouldRenderThemedCard(themeId: GameThemeId): boolean {
+  return usesThemedSvgDeck(themeId);
+}

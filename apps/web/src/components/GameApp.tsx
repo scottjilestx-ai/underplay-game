@@ -24,7 +24,8 @@ import {
   type PlayerSetup,
 } from "@underplay/engine";
 import { loadAudioPrefs, playSfx, setMuted, setVolume } from "@/lib/audio";
-import { BRAND_NAME } from "@/lib/brand";
+import { useTheme } from "@/context/ThemeProvider";
+import { UnderPlayLogo } from "./UnderPlayLogo";
 import { buildSlotMap, opponentTableWidthRem, type SlotMap } from "@/lib/cardSlots";
 import { sortHand } from "@/lib/sortCards";
 import {
@@ -116,6 +117,7 @@ function initSlotMaps(state: GameState): Record<number, SlotMap> {
 
 export function GameApp() {
   const router = useRouter();
+  const { themeId } = useTheme();
   const [screen, setScreen] = useState<"lobby" | "game">("lobby");
   const [state, setState] = useState<GameState | null>(null);
   const gameConfigRef = useRef<GameSetupConfig | null>(null);
@@ -1030,18 +1032,18 @@ export function GameApp() {
           }}
         />
       )}
-      <header className="flex items-center justify-between gap-3 px-4 py-2 border-b border-amber-900/30 bg-black/30 shrink-0">
-        <div className="min-w-0">
-          <span className="font-serif text-amber-100 text-2xl tracking-tight">{BRAND_NAME}</span>
-          <span className="ml-3 text-amber-200/60 text-sm">
+      <header className="flex items-center justify-between gap-3 px-4 py-2 border-b border-theme-border bg-black/30 shrink-0">
+        <div className="min-w-0 flex items-center gap-3">
+          <UnderPlayLogo variant={themeId} size="header" className="shrink-0" />
+          <span className="text-theme-muted text-sm truncate">
             Round {state.roundNumber} · Top {T ?? "—"}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-sm text-amber-100/80 shrink-0 flex-wrap justify-end">
+        <div className="flex items-center gap-3 text-sm text-theme-ink/80 shrink-0 flex-wrap justify-end">
           <button
             type="button"
             onClick={quitToMenu}
-            className="px-3 py-1.5 rounded-lg border border-amber-500/30 bg-black/40 text-amber-200/90 hover:bg-amber-950/50 hover:text-amber-100 transition"
+            className="px-3 py-1.5 rounded-lg border border-theme-border bg-black/40 text-theme-ink/90 hover:bg-black/50 transition"
           >
             Quit
           </button>

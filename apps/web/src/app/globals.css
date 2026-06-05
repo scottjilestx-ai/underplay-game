@@ -5,6 +5,73 @@
   --felt: #1a4d3a;
   --wood: #3d2817;
   --gold: #c9a227;
+  --theme-accent: #c9a227;
+  --theme-accent-rgb: 201, 162, 39;
+  --theme-glow: rgba(201, 162, 39, 0.18);
+  --theme-ink: #fef3c7;
+  --theme-muted: rgba(254, 243, 199, 0.55);
+  --theme-border: rgba(245, 158, 11, 0.25);
+  --theme-panel: rgba(0, 0, 0, 0.45);
+  --lobby-gradient-top: rgba(201, 162, 39, 0.15);
+  --lobby-gradient-mid: #1a1208;
+  --table-felt-top: #081810;
+  --table-felt-mid: #143528;
+  --table-felt-base: #0d261c;
+  --table-felt-glow: rgba(26, 77, 58, 0.22);
+}
+
+html[data-theme="acdc"] {
+  --theme-accent: #dc2626;
+  --theme-accent-rgb: 220, 38, 38;
+  --theme-glow: rgba(220, 38, 38, 0.22);
+  --theme-ink: #fef2f2;
+  --theme-muted: rgba(254, 202, 202, 0.55);
+  --theme-border: rgba(220, 38, 38, 0.35);
+  --lobby-gradient-top: rgba(220, 38, 38, 0.18);
+  --lobby-gradient-mid: #140808;
+  --table-felt-top: #0a0808;
+  --table-felt-mid: #1f1212;
+  --table-felt-base: #120c0c;
+  --table-felt-glow: rgba(127, 29, 29, 0.28);
+}
+
+html[data-theme="queen"] {
+  --theme-accent: #d4af37;
+  --theme-accent-rgb: 212, 175, 55;
+  --theme-glow: rgba(212, 175, 55, 0.2);
+  --theme-ink: #f5e6c8;
+  --theme-muted: rgba(196, 181, 253, 0.55);
+  --theme-border: rgba(167, 139, 250, 0.35);
+  --lobby-gradient-top: rgba(139, 92, 246, 0.2);
+  --lobby-gradient-mid: #1a0f2e;
+  --table-felt-top: #0f0a18;
+  --table-felt-mid: #2a1848;
+  --table-felt-base: #150d24;
+  --table-felt-glow: rgba(91, 58, 140, 0.35);
+}
+
+.text-theme-ink {
+  color: var(--theme-ink);
+}
+
+.text-theme-muted {
+  color: var(--theme-muted);
+}
+
+.border-theme-accent {
+  border-color: var(--theme-accent);
+}
+
+.border-theme-border {
+  border-color: var(--theme-border);
+}
+
+.bg-theme-panel {
+  background: var(--theme-panel);
+}
+
+.focus-visible\:ring-theme-accent:focus-visible {
+  --tw-ring-color: var(--theme-accent);
 }
 
 html,
@@ -39,16 +106,16 @@ body {
 
 .lobby-bg {
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(201, 162, 39, 0.15), transparent 50%),
-    linear-gradient(160deg, #0d1f17 0%, #1a1208 50%, #0a0f0d 100%);
+    radial-gradient(ellipse at 50% 0%, var(--lobby-gradient-top), transparent 50%),
+    linear-gradient(160deg, #0d1f17 0%, var(--lobby-gradient-mid) 50%, #0a0f0d 100%);
 }
 
 /* Single felt surface — avoid a bright horizontal band in the stack zone */
 .table-bg {
-  background-color: #0d261c;
+  background-color: var(--table-felt-base);
   background-image:
-    radial-gradient(ellipse 120% 90% at 50% 38%, rgba(26, 77, 58, 0.22), transparent 62%),
-    linear-gradient(180deg, #081810 0%, #143528 48%, #0d261c 100%);
+    radial-gradient(ellipse 120% 90% at 50% 38%, var(--table-felt-glow), transparent 62%),
+    linear-gradient(180deg, var(--table-felt-top) 0%, var(--table-felt-mid) 48%, var(--table-felt-base) 100%);
   box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.45);
 }
 
