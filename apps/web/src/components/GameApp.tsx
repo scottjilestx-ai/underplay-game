@@ -665,9 +665,9 @@ export function GameApp() {
         if (seat === viewSeat) setPlayAnimating(false);
         return;
       }
-      const hideIds = seat === viewSeat ? cardIds : [];
-      if (hideIds.length) setHiddenFlyIds(new Set(hideIds));
       if (seat === viewSeat) setPlayAnimating(true);
+      // Hide at source immediately so the table slot clears before/during the fly, not after it lands.
+      setHiddenFlyIds(new Set(cardIds));
 
       requestAnimationFrame(() => {
         const specs = buildFlySpecs(cardIds, cards, seat !== viewSeat ? seat : undefined);

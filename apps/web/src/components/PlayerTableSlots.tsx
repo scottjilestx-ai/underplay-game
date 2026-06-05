@@ -71,7 +71,7 @@ export function PlayerTableSlots({
             {down && (
               <div
                 data-play-card={down.id}
-                className={`absolute bottom-0 left-1/2 z-0 transition-opacity duration-150 ${hiddenCardIds?.has(down.id) ? "opacity-0" : ""}`}
+                className={`absolute bottom-0 left-1/2 z-0 ${hiddenCardIds?.has(down.id) ? "opacity-0 pointer-events-none" : "transition-opacity duration-150"}`}
                 style={{ transform: "translateX(-50%)" }}
               >
                 <PlayingCard
@@ -88,7 +88,7 @@ export function PlayerTableSlots({
             {up && (
               <div
                 data-play-card={up.id}
-                className={`absolute bottom-0 left-1/2 z-10 transition-opacity duration-150 ${hiddenCardIds?.has(up.id) ? "opacity-0" : ""}`}
+                className={`absolute bottom-0 left-1/2 z-10 ${hiddenCardIds?.has(up.id) ? "opacity-0 pointer-events-none" : "transition-opacity duration-150"}`}
                 style={{
                   transform: `translate(calc(-50% + ${nudge.x}px), ${nudge.y}px)`,
                 }}

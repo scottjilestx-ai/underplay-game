@@ -47,7 +47,7 @@ export function HandRow({
           layoutId={layoutSort ? `hand-card-${c.id}` : undefined}
           data-play-card={c.id}
           data-deal-target={`seat-${seat}-hand-${c.id}`}
-          className={`shrink-0 transition-opacity duration-150 ${hiddenCardIds?.has(c.id) ? "opacity-0" : ""}`}
+          className={`shrink-0 ${hiddenCardIds?.has(c.id) ? "opacity-0 pointer-events-none" : "transition-opacity duration-150"}`}
           initial={
             faceDown && !reducedMotion
               ? { opacity: 0, rotateY: 90 }
