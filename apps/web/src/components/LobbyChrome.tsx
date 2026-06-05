@@ -32,7 +32,7 @@ export function LobbyChrome({
       </div>
       <div className="flex items-center gap-3">
         <div className="w-[7.5rem] shrink-0">
-          <UnderPlayLogo variant={themeId} size="header" priority />
+          <UnderPlayLogo themeId={themeId} size="header" />
         </div>
         {tagline && (
           <p className="text-theme-muted text-sm leading-snug min-w-0">{tagline}</p>

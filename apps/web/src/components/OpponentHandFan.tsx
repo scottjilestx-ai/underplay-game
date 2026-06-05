@@ -1,8 +1,6 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
-import { CARD_BACK_SRC, shouldRenderThemedCard } from "@/lib/cardArt";
 import { useTheme } from "@/context/ThemeProvider";
 import { ThemedCardBack } from "./ThemedCardBack";
 
@@ -10,7 +8,6 @@ interface Props {
   count: number;
   dealEntrance?: boolean;
   reducedMotion?: boolean;
-  /** Tighter fan when multiple opponents share the top row. */
   dense?: boolean;
 }
 
@@ -21,10 +18,8 @@ const CARD_H_DENSE = 42;
 const MAX_ROTATE_DEG = 22;
 const ROTATION_BLEED_PX = 20;
 
-/** Fanned card backs, centered on the same axis as the table row below. */
 export function OpponentHandFan({ count, dealEntrance, reducedMotion, dense }: Props) {
   const { themeId } = useTheme();
-  const themed = shouldRenderThemedCard(themeId);
   if (count <= 0) return null;
 
   const CARD_W = dense ? CARD_W_DENSE : CARD_W_DEFAULT;
@@ -88,17 +83,7 @@ export function OpponentHandFan({ count, dealEntrance, reducedMotion, dense }: P
                   transformOrigin: "50% 100%",
                 }}
               >
-                {themed ? (
-                  <ThemedCardBack themeId={themeId} className="h-full w-full" />
-                ) : (
-                  <Image
-                    src={CARD_BACK_SRC}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    sizes={dense ? "30px" : "40px"}
-                  />
-                )}
+                <ThemedCardBack themeId={themeId} className="h-full w-full" />
               </div>
             </motion.div>
           );

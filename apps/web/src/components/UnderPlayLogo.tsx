@@ -1,61 +1,60 @@
 "use client";
 
-import Image from "next/image";
-import {
-  FEATURED_LOGO_VARIANTS,
-  LOGO_SRC,
-  LOGO_VARIANT_LABELS,
-  type LogoVariant,
-} from "@/lib/themes";
-
-export type { LogoVariant };
-
-export function logoVariantLabel(v: LogoVariant): string {
-  return LOGO_VARIANT_LABELS[v];
-}
-
-export const LOGO_VARIANTS: LogoVariant[] = FEATURED_LOGO_VARIANTS;
+import { getGameTheme, type GameThemeId } from "@/lib/themes";
 
 interface Props {
-  variant: LogoVariant;
+  themeId: GameThemeId;
   size?: "hero" | "card" | "header";
   className?: string;
-  priority?: boolean;
 }
 
 const SIZE_CLASS: Record<NonNullable<Props["size"]>, string> = {
-  hero: "max-w-2xl aspect-[2.4/1]",
-  card: "aspect-[2.2/1] max-h-[4.5rem]",
-  header: "w-full aspect-[2.4/1] max-h-[3.25rem]",
+  hero: "w-full max-w-md h-14",
+  card: "w-full h-10",
+  header: "w-full h-8",
 };
 
-export function UnderPlayLogo({
-  variant,
-  size = "hero",
-  className = "",
-  priority = false,
-}: Props) {
-  const hero = size === "hero";
-  const header = size === "header";
+/** SVG wordmark — follows active game theme colors. */
+export function UnderPlayLogo({ themeId, size = "hero", className = "" }: Props) {
+  const theme = getGameTheme(themeId);
+  const accent = theme.palette.accent;
+  const accentAlt = theme.palette.accentAlt;
+  const ink = theme.palette.ink;
 
   return (
-    <div
-      className={`relative ${header ? SIZE_CLASS.header : `w-full ${SIZE_CLASS[size]}`} ${className}`}
+    <svg
+      viewBox="0 0 240 48"
+      className={`${SIZE_CLASS[size]} ${className}`}
+      role="img"
+      aria-label={`${theme.name} — UnderPlay`}
     >
-      <Image
-        src={LOGO_SRC[variant]}
-        alt={`UnderPlay logo, ${LOGO_VARIANT_LABELS[variant]} style`}
-        fill
-        priority={priority}
-        sizes={
-          header
-            ? "120px"
-            : hero
-              ? "(max-width: 768px) 100vw, 672px"
-              : "(max-width: 640px) 50vw, 320px"
-        }
-        className="object-contain object-left drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)]"
+      <text
+        x={0}
+        y={34}
+        fill={ink}
+        fontSize={32}
+        fontWeight={700}
+        fontFamily="Georgia, 'Cormorant Garamond', serif"
+        letterSpacing={-0.5}
+      >
+        UNDER
+      </text>
+      <text
+        x={118}
+        y={34}
+        fill={accent}
+        fontSize={32}
+        fontWeight={700}
+        fontFamily="Georgia, 'Cormorant Garamond', serif"
+        letterSpacing={-0.5}
+      >
+        PLAY
+      </text>
+      <path
+        d="M108 8 L100 28 H106 L102 40 L116 18 H110 Z"
+        fill={accentAlt}
+        opacity={0.9}
       />
-    </div>
+    </svg>
   );
 }

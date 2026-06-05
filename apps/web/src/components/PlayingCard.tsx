@@ -1,12 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
 import type { Card } from "@underplay/engine";
-import { CARD_BACK_SRC, cardFaceSrc, shouldRenderThemedCard } from "@/lib/cardArt";
-import { usesSvgDiamondPipFace } from "@/lib/cardSuits";
 import { useTheme } from "@/context/ThemeProvider";
-import { PipCardFace } from "./PipCardFace";
 import { ThemedCardBack } from "./ThemedCardBack";
 import { ThemedCardFace } from "./ThemedCardFace";
 
@@ -28,12 +24,8 @@ export function PlayingCard({
   reducedMotion,
 }: Props) {
   const { themeId } = useTheme();
-  const themed = shouldRenderThemedCard(themeId);
   const w = small ? "w-14 h-20" : "w-[4.5rem] h-[6.5rem]";
   const showBack = faceDown || !card;
-  const src = showBack ? CARD_BACK_SRC : cardFaceSrc(card!);
-  const svgDiamondPip =
-    !themed && !showBack && card && usesSvgDiamondPipFace(card.value);
 
   return (
     <motion.button
@@ -46,21 +38,10 @@ export function PlayingCard({
       className={`${w} relative shrink-0 ${onClick ? "cursor-pointer" : "cursor-default"} ${selected ? "ring-2 ring-[var(--theme-accent)] ring-offset-2 ring-offset-[var(--table-felt-base)] z-10" : ""}`}
     >
       <div className="absolute inset-0 rounded-[0.35rem] shadow-[0_10px_28px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.35)] overflow-hidden bg-white">
-        {themed && showBack ? (
+        {showBack ? (
           <ThemedCardBack themeId={themeId} className="h-full w-full" />
-        ) : themed && card ? (
-          <ThemedCardFace card={card} themeId={themeId} className="h-full w-full" />
-        ) : svgDiamondPip ? (
-          <PipCardFace value={card!.value!} className="h-full w-full" />
         ) : (
-          <Image
-            src={src}
-            alt={showBack ? "Card back" : "Playing card"}
-            fill
-            className="object-cover"
-            sizes={small ? "56px" : "72px"}
-            priority={showBack}
-          />
+          <ThemedCardFace card={card!} themeId={themeId} className="h-full w-full" />
         )}
       </div>
     </motion.button>

@@ -12,6 +12,7 @@ import {
 import {
   GAME_THEME_IDS,
   getGameTheme,
+  normalizeThemeId,
   type GameTheme,
   type GameThemeId,
 } from "@/lib/themes";
@@ -27,13 +28,12 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function readStoredTheme(): GameThemeId {
-  if (typeof window === "undefined") return "acdc";
-  const raw = localStorage.getItem(STORAGE_KEY);
-  return raw === "queen" ? "queen" : "acdc";
+  if (typeof window === "undefined") return "casino";
+  return normalizeThemeId(localStorage.getItem(STORAGE_KEY));
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [themeId, setThemeIdState] = useState<GameThemeId>("acdc");
+  const [themeId, setThemeIdState] = useState<GameThemeId>("casino");
   const [ready, setReady] = useState(false);
 
   useEffect(() => {

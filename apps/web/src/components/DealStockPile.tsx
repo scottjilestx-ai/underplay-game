@@ -1,8 +1,6 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
-import { CARD_BACK_SRC, shouldRenderThemedCard } from "@/lib/cardArt";
 import { useTheme } from "@/context/ThemeProvider";
 import { ThemedCardBack } from "./ThemedCardBack";
 
@@ -12,25 +10,8 @@ interface Props {
   reducedMotion?: boolean;
 }
 
-/** Face-down stock during opening deal (cards not yet on table / revealed hand). */
-function StockBack({
-  themed,
-  themeId,
-}: {
-  themed: boolean;
-  themeId: ReturnType<typeof useTheme>["themeId"];
-}) {
-  if (themed) return <ThemedCardBack themeId={themeId} className="h-full w-full" />;
-  return (
-    <div className="relative h-full w-full">
-      <Image src={CARD_BACK_SRC} alt="" fill className="object-cover" sizes="72px" />
-    </div>
-  );
-}
-
 export function DealStockPile({ seat, count, reducedMotion }: Props) {
   const { themeId } = useTheme();
-  const themed = shouldRenderThemedCard(themeId);
   if (count <= 0) {
     return (
       <div
@@ -67,10 +48,10 @@ export function DealStockPile({ seat, count, reducedMotion }: Props) {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.12 }}
             >
-              <StockBack themed={themed} themeId={themeId} />
+              <ThemedCardBack themeId={themeId} className="h-full w-full" />
             </motion.div>
           ) : (
-            <StockBack themed={themed} themeId={themeId} />
+            <ThemedCardBack themeId={themeId} className="h-full w-full" />
           )}
         </div>
       ))}

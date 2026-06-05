@@ -3,20 +3,15 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import type { FlyingCardSpec } from "@/lib/cardFly";
 import { DEAL_FLY_DURATION_S } from "@/lib/dealFly";
-import { CARD_BACK_SRC, cardFaceSrc, shouldRenderThemedCard } from "@/lib/cardArt";
 import { FLY_DURATION_S, FLY_FLIP_REVEAL_S, playFlyEndDelayS } from "@/lib/cardFly";
 import { CARD_PLAY_EASE, CARD_STACK_LAND_EASE } from "@/lib/cardMotion";
-import { usesSvgDiamondPipFace } from "@/lib/cardSuits";
 import { useTheme } from "@/context/ThemeProvider";
 import type { GameThemeId } from "@/lib/themes";
-import { PipCardFace } from "./PipCardFace";
 import { ThemedCardBack } from "./ThemedCardBack";
 import { ThemedCardFace } from "./ThemedCardFace";
 
-/** Brief beat at source so face-up hand plays show rank before flying. */
 const FACE_UP_HOLD_S = FLY_FLIP_REVEAL_S;
 
 interface Props {
@@ -33,77 +28,39 @@ function CardFaceContent({
   card,
   faceDown,
   themeId,
-  themed,
 }: {
   card: FlyingCardSpec["card"];
   faceDown: boolean;
   themeId: GameThemeId;
-  themed: boolean;
 }) {
-  const showBack = faceDown;
-  const svgDiamondPip = !themed && !showBack && usesSvgDiamondPipFace(card.value);
-
   return (
     <div className="relative h-full w-full rounded-[0.35rem] overflow-hidden bg-white shadow-[0_10px_28px_rgba(0,0,0,0.5)]">
-      {themed && showBack ? (
+      {faceDown ? (
         <ThemedCardBack themeId={themeId} className="h-full w-full" />
-      ) : themed ? (
-        <ThemedCardFace card={card} themeId={themeId} className="h-full w-full" />
-      ) : svgDiamondPip ? (
-        <PipCardFace value={card.value!} className="h-full w-full" />
       ) : (
-        <Image
-          src={showBack ? CARD_BACK_SRC : cardFaceSrc(card)}
-          alt=""
-          fill
-          className="object-cover"
-          sizes="80px"
-        />
+        <ThemedCardFace card={card} themeId={themeId} className="h-full w-full" />
       )}
     </div>
   );
 }
 
-/** Back + face: flip in place at source, then parent flies face-up. */
 function CardFlipFaces({
   card,
   themeId,
-  themed,
 }: {
   card: FlyingCardSpec["card"];
   themeId: GameThemeId;
-  themed: boolean;
 }) {
-  const svgDiamondPip = !themed && usesSvgDiamondPipFace(card.value);
   return (
-    <div
-      className="relative h-full w-full"
-      style={{ transformStyle: "preserve-3d" }}
-    >
-      <div
-        className="absolute inset-0"
-        style={{ backfaceVisibility: "hidden" }}
-      >
-        <CardFaceContent card={card} faceDown themeId={themeId} themed={themed} />
+    <div className="relative h-full w-full" style={{ transformStyle: "preserve-3d" }}>
+      <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
+        <CardFaceContent card={card} faceDown themeId={themeId} />
       </div>
       <div
         className="absolute inset-0"
-        style={{
-          backfaceVisibility: "hidden",
-          transform: "rotateY(180deg)",
-        }}
+        style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
       >
-        {themed ? (
-          <div className="relative h-full w-full rounded-[0.35rem] overflow-hidden bg-white shadow-[0_10px_28px_rgba(0,0,0,0.5)]">
-            <ThemedCardFace card={card} themeId={themeId} className="h-full w-full" />
-          </div>
-        ) : svgDiamondPip ? (
-          <div className="relative h-full w-full rounded-[0.35rem] overflow-hidden bg-white shadow-[0_10px_28px_rgba(0,0,0,0.5)]">
-            <PipCardFace value={card.value!} className="h-full w-full" />
-          </div>
-        ) : (
-          <CardFaceContent card={card} faceDown={false} themeId={themeId} themed={themed} />
-        )}
+        <CardFaceContent card={card} faceDown={false} themeId={themeId} />
       </div>
     </div>
   );
@@ -119,7 +76,6 @@ export function CardFlyOverlay({
   onCardLand,
 }: Props) {
   const { themeId } = useTheme();
-  const themed = shouldRenderThemedCard(themeId);
   const duration = dealFlight
     ? stockDealFlight && stockDealDurationS != null
       ? stockDealDurationS
@@ -238,14 +194,13 @@ export function CardFlyOverlay({
                   ease: CARD_PLAY_EASE,
                 }}
               >
-                <CardFlipFaces card={spec.card} themeId={themeId} themed={themed} />
+                <CardFlipFaces card={spec.card} themeId={themeId} />
               </motion.div>
             ) : (
               <CardFaceContent
                 card={spec.card}
                 faceDown={showBackDuringDeal}
                 themeId={themeId}
-                themed={themed}
               />
             )}
           </motion.div>
