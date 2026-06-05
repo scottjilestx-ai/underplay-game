@@ -1,0 +1,19 @@
+{
+  "name": "underplay",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm run test -w @underplay/engine",
+    "dev": "npm run dev -w @underplay/web",
+    "build": "npm run build -w @underplay/web",
+    "sim": "npm run sim -w @underplay/engine",
+    "lint": "npm run build -w @underplay/engine && npm run test -w @underplay/engine"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
