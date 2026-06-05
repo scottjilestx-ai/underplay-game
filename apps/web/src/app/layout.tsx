@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: BRAND_NAME,
-  description: "Play under the top card — photorealistic shedding card game",
+  description: "Shedding-style card game — play under the top card or host an online room",
 };
 
 export default function RootLayout({

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -103,6 +105,7 @@ function initSlotMaps(state: GameState): Record<number, SlotMap> {
 }
 
 export function GameApp() {
+  const router = useRouter();
   const [screen, setScreen] = useState<"lobby" | "game">("lobby");
   const [playerCount, setPlayerCount] = useState(2);
   const [cpuCount, setCpuCount] = useState(1);
@@ -153,6 +156,30 @@ export function GameApp() {
     for (const t of summaryTimersRef.current) clearTimeout(t);
     summaryTimersRef.current = [];
   }, []);
+
+  const quitToMenu = useCallback(() => {
+    if (
+      state &&
+      !window.confirm("Leave this game and return to the menu? Progress will be lost.")
+    ) {
+      return;
+    }
+    for (const t of dealTimersRef.current) clearTimeout(t);
+    dealTimersRef.current = [];
+    clearSummaryTimers();
+    setPlaySummary(null);
+    summaryQueueRef.current = [];
+    setFlyingSpecs(null);
+    setFlyDeal(false);
+    setStockDealFly(false);
+    setOpeningDeal(false);
+    setDeckPhase(null);
+    setState(null);
+    setScreen("lobby");
+    setSelected([]);
+    setTurnLog([]);
+    router.push("/");
+  }, [state, clearSummaryTimers, router]);
 
   useEffect(() => {
     setMuted(muted);
@@ -786,6 +813,12 @@ export function GameApp() {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full rounded-2xl bg-black/40 backdrop-blur-md border border-amber-500/20 p-8 shadow-2xl"
         >
+          <Link
+            href="/"
+            className="text-amber-200/50 text-sm hover:text-amber-200/80 transition mb-4 inline-block"
+          >
+            ← Home
+          </Link>
           <h1 className="font-serif text-4xl text-amber-100 tracking-tight mb-1">{BRAND_NAME}</h1>
           <p className="text-amber-200/70 text-sm mb-8">Play under the top card — or pick up the pile.</p>
           <label className="block text-amber-100/80 text-sm mb-2">Players ({playerCount})</label>
@@ -837,7 +870,9 @@ export function GameApp() {
             Deal & Play
           </button>
           <p className="mt-4 text-amber-200/40 text-xs text-center">
-            Open <span className="text-amber-200/60">http://localhost:3000</span> (not an old tab on another port).
+            <Link href="/online" className="text-amber-300/80 hover:text-amber-200">
+              Play online with friends
+            </Link>
           </p>
         </motion.div>
       </div>
@@ -910,6 +945,13 @@ export function GameApp() {
           </span>
         </div>
         <div className="flex items-center gap-3 text-sm text-amber-100/80 shrink-0 flex-wrap justify-end">
+          <button
+            type="button"
+            onClick={quitToMenu}
+            className="px-3 py-1.5 rounded-lg border border-amber-500/30 bg-black/40 text-amber-200/90 hover:bg-amber-950/50 hover:text-amber-100 transition"
+          >
+            Quit
+          </button>
           <label className="flex items-center gap-1">
             <input type="checkbox" checked={muted} onChange={(e) => setMutedState(e.target.checked)} />
             Mute
