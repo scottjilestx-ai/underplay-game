@@ -23,7 +23,7 @@ import {
   type Move,
   type PlayerSetup,
 } from "@underplay/engine";
-import { playSfx, setMuted, setVolume } from "@/lib/audio";
+import { loadAudioPrefs, playSfx, setMuted, setVolume } from "@/lib/audio";
 import { BRAND_NAME } from "@/lib/brand";
 import { buildSlotMap, opponentTableWidthRem, type SlotMap } from "@/lib/cardSlots";
 import { sortHand } from "@/lib/sortCards";
@@ -124,8 +124,8 @@ export function GameApp() {
   const [skipTarget, setSkipTarget] = useState<number | null>(null);
   const skipTargetRef = useRef<number | null>(null);
   skipTargetRef.current = skipTarget;
-  const [muted, setMutedState] = useState(false);
-  const [vol, setVol] = useState(0.6);
+  const [muted, setMutedState] = useState(() => loadAudioPrefs().muted);
+  const [vol, setVol] = useState(() => loadAudioPrefs().volume);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [lastEvent, setLastEvent] = useState("");
   const [deckPhase, setDeckPhase] = useState<DeckPhase>(null);
@@ -210,6 +210,14 @@ export function GameApp() {
     setMuted(muted);
     setVolume(vol);
   }, [muted, vol]);
+
+  const toggleMute = useCallback(() => {
+    setMutedState((prev) => {
+      const next = !prev;
+      setMuted(next);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -1037,19 +1045,36 @@ export function GameApp() {
           >
             Quit
           </button>
-          <label className="flex items-center gap-1">
-            <input type="checkbox" checked={muted} onChange={(e) => setMutedState(e.target.checked)} />
-            Mute
-          </label>
+          <button
+            type="button"
+            onClick={toggleMute}
+            aria-pressed={muted}
+            aria-label={muted ? "Unmute game sounds" : "Mute game sounds"}
+            title={muted ? "Unmute" : "Mute"}
+            className="px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-black/40 text-amber-200/90 hover:bg-amber-950/50 hover:text-amber-100 transition min-w-[2.5rem]"
+          >
+            {muted ? (
+              <span className="inline-block opacity-70" aria-hidden>
+                Muted
+              </span>
+            ) : (
+              <span aria-hidden>Sound</span>
+            )}
+          </button>
           <input
             type="range"
             min={0}
             max={1}
             step={0.05}
             value={vol}
-            onChange={(e) => setVol(Number(e.target.value))}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setVol(v);
+              setVolume(v);
+            }}
             className="w-20 accent-amber-400"
             disabled={muted}
+            aria-label="Sound volume"
           />
           {state.scores.map((s, i) => (
             <span key={i} className={i === viewSeat ? "text-amber-300 font-medium" : ""}>

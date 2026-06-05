@@ -8,6 +8,7 @@ import type { FlyingCardSpec } from "@/lib/cardFly";
 import { DEAL_FLY_DURATION_S } from "@/lib/dealFly";
 import { CARD_BACK_SRC, cardFaceSrc } from "@/lib/cardArt";
 import { FLY_DURATION_S, FLY_FLIP_REVEAL_S, playFlyEndDelayS } from "@/lib/cardFly";
+import { CARD_PLAY_EASE, CARD_STACK_LAND_EASE } from "@/lib/cardMotion";
 import { usesSvgDiamondPipFace } from "@/lib/cardSuits";
 import { PipCardFace } from "./PipCardFace";
 
@@ -161,7 +162,7 @@ export function CardFlyOverlay({
                   ? "linear"
                   : dealFlight
                     ? [0.22, 0.72, 0.15, 1]
-                    : [0.22, 0.85, 0.25, 1],
+                    : CARD_STACK_LAND_EASE,
             }}
           >
             {flipFirst ? (
@@ -173,7 +174,7 @@ export function CardFlyOverlay({
                 transition={{
                   delay: spec.delay,
                   duration: FLY_FLIP_REVEAL_S,
-                  ease: "easeOut",
+                  ease: CARD_PLAY_EASE,
                 }}
               >
                 <CardFlipFaces card={spec.card} />

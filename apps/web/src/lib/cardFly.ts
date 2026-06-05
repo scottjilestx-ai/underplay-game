@@ -1,4 +1,9 @@
 import type { Card } from "@underplay/engine";
+import {
+  CARD_FLIP_DURATION_MS,
+  CARD_PLAY_DURATION_MS,
+  CARD_PLAY_STAGGER_MS,
+} from "@/lib/cardMotion";
 
 export interface FlyRect {
   left: number;
@@ -22,14 +27,16 @@ export interface FlyingCardSpec {
   revealBeforeFly?: boolean;
 }
 
-export const FLY_FLIP_REVEAL_S = 0.3;
+/** Face-down reveal at source before stack flight (deck-of-cards flip cadence). */
+export const FLY_FLIP_REVEAL_S = CARD_FLIP_DURATION_MS / 1000;
 
 /** Matches PlayingCard default size (4.5rem × 6.5rem at 16px root). */
 export const FLY_CARD_WIDTH = 72;
 export const FLY_CARD_HEIGHT = 104;
 
-export const FLY_DURATION_S = 0.72;
-export const FLY_STAGGER_S = 0.09;
+/** Play-to-stack flight — deck-of-cards `animateTo` default duration (500ms). */
+export const FLY_DURATION_S = CARD_PLAY_DURATION_MS / 1000;
+export const FLY_STAGGER_S = CARD_PLAY_STAGGER_MS / 1000;
 
 function stackLandingRects(count: number): FlyRect[] {
   const stack = document.querySelector('[data-fly-target="stack"]');
