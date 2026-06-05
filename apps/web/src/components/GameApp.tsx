@@ -89,7 +89,11 @@ import {
   overcutHeldOnTarget,
   type OvercutHold,
 } from "@/lib/overcutHold";
-import { buildTargetedMove, canPlaySelection } from "@/lib/playMove";
+import {
+  buildTargetedMove,
+  canPlaySelection,
+  selectionRequiresTarget,
+} from "@/lib/playMove";
 import { OvercutPlaySlot } from "./OvercutPlaySlot";
 import { RoundEndOverlay } from "./RoundEndOverlay";
 
@@ -620,16 +624,18 @@ export function GameApp() {
     return findInZones(state.players[state.currentSeat], selected[0]) ?? null;
   }, [state, selected, myTurn]);
 
-  const isSkipSelection = selectedSpecial?.kind === "skip";
-  const isFaceDownUndercutSelection = useMemo(() => {
-    if (!state || selected.length !== 1 || !myTurn) return false;
-    const id = selected[0];
-    const seat = state.currentSeat;
-    if (!state.players[seat].faceDown.some((c) => c.id === id)) return false;
-    return selectedSpecial?.kind === "clear";
-  }, [state, selected, myTurn, selectedSpecial?.kind]);
+  const needsPlayTarget = useMemo(() => {
+    if (!state || !selected.length || !myTurn) return false;
+    return selectionRequiresTarget(
+      legalMoves(state, state.currentSeat),
+      selected,
+    );
+  }, [state, selected, myTurn]);
 
-  const needsPlayTarget = isSkipSelection || isFaceDownUndercutSelection;
+  const isSkipTargetPrompt =
+    needsPlayTarget && selectedSpecial?.kind === "skip";
+  const isStackToTargetPrompt =
+    needsPlayTarget && selectedSpecial?.kind === "clear";
   const playTargetSeat = needsPlayTarget ? skipTarget : null;
 
   const targetPlayOptions = useMemo(
@@ -661,13 +667,17 @@ export function GameApp() {
     const actor = state.currentSeat;
     return state.players.filter((p) => {
       if (p.seat === actor) return false;
-      if (isSkipSelection && p.pendingSkip) return false;
+      if (isSkipTargetPrompt && p.pendingSkip) return false;
       return true;
     });
-  }, [state, myTurn, needsPlayTarget, isSkipSelection]);
+  }, [state, myTurn, needsPlayTarget, isSkipTargetPrompt]);
 
   useEffect(() => {
-    if (!needsPlayTarget || playTargetOptions.length === 0) return;
+    if (!needsPlayTarget) {
+      setSkipTarget(null);
+      return;
+    }
+    if (playTargetOptions.length === 0) return;
     if (
       skipTarget != null &&
       playTargetOptions.some((p) => p.seat === skipTarget)
@@ -1236,7 +1246,11 @@ export function GameApp() {
             {needsPlayTarget && (
               <div className="flex flex-wrap gap-2 items-center justify-center mb-2 w-full px-2">
                 <span className="text-amber-200/70 text-sm shrink-0">
-                  {isFaceDownUndercutSelection ? "Send stack to:" : "Skip target:"}
+                  {isStackToTargetPrompt
+                    ? "Send stack to:"
+                    : isSkipTargetPrompt
+                      ? "Skip target:"
+                      : "Target:"}
                 </span>
                 {playTargetOptions.map((p) => (
                   <button
@@ -1245,7 +1259,7 @@ export function GameApp() {
                     onClick={() => setSkipTarget(p.seat)}
                     className={`px-3 py-1 rounded-lg text-sm ${
                       skipTarget === p.seat
-                        ? isFaceDownUndercutSelection
+                        ? isStackToTargetPrompt
                           ? "bg-amber-500 text-black"
                           : "bg-rose-500 text-white"
                         : "bg-black/40 text-amber-100"
