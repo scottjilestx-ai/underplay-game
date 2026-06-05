@@ -1,4 +1,84 @@
-type Sfx = "deal" | "play" | "pickup" | "clear" | "skip" | "flip" | "win" | "tap";
+export type Sfx = "deal" | "play" | "pickup" | "clear" | "skip" | "flip" | "win" | "tap";
+
+export const SFX_IDS: Sfx[] = [
+  "deal",
+  "play",
+  "pickup",
+  "clear",
+  "skip",
+  "flip",
+  "tap",
+  "win",
+];
+
+export type SfxPlayResult =
+  | { ok: true; contextState: AudioContextState }
+  | {
+      ok: false;
+      reason: "muted" | "volume-zero" | "context-blocked" | "unsupported" | "error";
+      contextState?: AudioContextState | "none";
+      detail?: string;
+    };
+
+export interface SfxCatalogEntry {
+  id: Sfx;
+  label: string;
+  description: string;
+  gameTrigger: string;
+}
+
+/** All wired game sounds and when they fire in GameApp. */
+export const SFX_CATALOG: SfxCatalogEntry[] = [
+  {
+    id: "deal",
+    label: "Deal",
+    description: "Two short triangle tones (220 Hz + 330 Hz).",
+    gameTrigger: "Shuffle / deal animation (Deal cards, opening deal-stock phase).",
+  },
+  {
+    id: "play",
+    label: "Play card",
+    description: "Single sine tone (~440 Hz).",
+    gameTrigger:
+      "Normal card play, higher-confirm add/complete, CPU/human after move resolution.",
+  },
+  {
+    id: "pickup",
+    label: "Pickup pile",
+    description: "Low sawtooth dip (180 Hz + 140 Hz).",
+    gameTrigger: "Higher play that sends the stack to your hand (pending confirm).",
+  },
+  {
+    id: "clear",
+    label: "Clear / tap-out",
+    description: "Rising sine pair (520 Hz + 780 Hz).",
+    gameTrigger: "Undercut card or stack cleared — extra turn.",
+  },
+  {
+    id: "skip",
+    label: "Skip / Overcut",
+    description: "Square wave (~300 Hz).",
+    gameTrigger: "Overcut (skip) card played.",
+  },
+  {
+    id: "flip",
+    label: "Flip face-down",
+    description: "Triangle tone (~360 Hz).",
+    gameTrigger: "Card played from a face-down table slot.",
+  },
+  {
+    id: "tap",
+    label: "Tap / UI",
+    description: "Bright double tone (600 Hz + 900 Hz).",
+    gameTrigger: "Unmute, volume slider preview, tap-out after Confirm.",
+  },
+  {
+    id: "win",
+    label: "Win round",
+    description: "Arpeggio C–E–G (523 / 659 / 784 Hz).",
+    gameTrigger: "Round over or match over.",
+  },
+];
 
 const STORAGE_KEY = "underplay-audio-v1";
 
@@ -12,7 +92,7 @@ let masterGain: GainNode | null = null;
 let muted = false;
 let volume = 0.6;
 let unlockListenersInstalled = false;
-let resumePromise: Promise<void> | null = null;
+let gesturePrimed = false;
 const winTimers: ReturnType<typeof setTimeout>[] = [];
 
 function createCtx(): AudioContext {
@@ -50,19 +130,41 @@ function clearWinTimers() {
   winTimers.length = 0;
 }
 
+function playSilentPrime(ac: AudioContext) {
+  if (gesturePrimed || ac.state !== "running") return;
+  const buf = ac.createBuffer(1, 1, ac.sampleRate);
+  const src = ac.createBufferSource();
+  src.buffer = buf;
+  src.connect(getMaster());
+  src.start(ac.currentTime);
+  gesturePrimed = true;
+}
+
+/** Call synchronously from click/tap handlers so the context unlocks under autoplay rules. */
+export function primeAudioFromGesture(): void {
+  if (typeof window === "undefined" || muted || volume <= 0) return;
+  try {
+    const ac = getCtx();
+    if (ac.state === "running") {
+      playSilentPrime(ac);
+      return;
+    }
+    void ac.resume().then(() => {
+      if (!muted && volume > 0) playSilentPrime(ac);
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Resume AudioContext after a user gesture (required by Chrome, Safari, Edge). */
 export async function unlockAudio(): Promise<boolean> {
-  if (typeof window === "undefined" || muted) return false;
+  if (typeof window === "undefined") return false;
   const ac = getCtx();
-  if (ac.state === "running") return true;
+  if (ac.state === "running") return !muted && volume > 0;
   try {
-    if (!resumePromise) {
-      resumePromise = ac.resume().finally(() => {
-        resumePromise = null;
-      });
-    }
-    await resumePromise;
-    return getCtx().state === "running";
+    await ac.resume();
+    return getCtx().state === "running" && !muted && volume > 0;
   } catch {
     return false;
   }
@@ -74,7 +176,7 @@ export function installAudioUnlock(): void {
   unlockListenersInstalled = true;
 
   const onGesture = () => {
-    void unlockAudio();
+    primeAudioFromGesture();
   };
 
   window.addEventListener("pointerdown", onGesture, { capture: true, passive: true });
@@ -115,46 +217,47 @@ function playTone(
   peak = 0.12,
 ) {
   const ac = getCtx();
+  if (ac.state !== "running") return;
   const o = ac.createOscillator();
   const g = ac.createGain();
   o.type = type;
   o.frequency.value = freq;
   const t0 = ac.currentTime;
-  const attack = 0.008;
+  const attack = 0.01;
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t0 + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   o.connect(g);
   g.connect(getMaster());
   o.start(t0);
-  o.stop(t0 + dur + 0.02);
+  o.stop(t0 + dur + 0.03);
 }
 
 function playTones(name: Sfx) {
   const map: Record<Sfx, () => void> = {
     deal: () => {
-      playTone(220, 0.06, "triangle");
-      playTone(330, 0.07, "triangle");
+      playTone(220, 0.07, "triangle", 0.14);
+      playTone(330, 0.08, "triangle", 0.14);
     },
-    play: () => playTone(440, 0.08, "sine"),
+    play: () => playTone(440, 0.12, "sine", 0.22),
     pickup: () => {
-      playTone(180, 0.14, "sawtooth", 0.07);
-      playTone(140, 0.16, "sawtooth", 0.06);
+      playTone(180, 0.14, "sawtooth", 0.12);
+      playTone(140, 0.16, "sawtooth", 0.1);
     },
     clear: () => {
-      playTone(520, 0.11);
-      playTone(780, 0.13);
+      playTone(520, 0.12, "sine", 0.18);
+      playTone(780, 0.14, "sine", 0.16);
     },
-    skip: () => playTone(300, 0.15, "square", 0.06),
-    flip: () => playTone(360, 0.06, "triangle"),
+    skip: () => playTone(300, 0.16, "square", 0.1),
+    flip: () => playTone(360, 0.1, "triangle", 0.2),
     tap: () => {
-      playTone(600, 0.09);
-      playTone(900, 0.1);
+      playTone(600, 0.1, "sine", 0.16);
+      playTone(900, 0.11, "sine", 0.14);
     },
     win: () => {
       clearWinTimers();
       [523, 659, 784].forEach((f, i) => {
-        const t = setTimeout(() => playTone(f, 0.22), i * 120);
+        const t = setTimeout(() => playTone(f, 0.24, "sine", 0.2), i * 120);
         winTimers.push(t);
       });
     },
@@ -179,12 +282,101 @@ export function setVolume(v: number) {
   saveAudioPrefs();
 }
 
+function runSfx(name: Sfx) {
+  const ac = getCtx();
+  if (ac.state !== "running") return false;
+  playTones(name);
+  return true;
+}
+
+export function getAudioDebugStatus(): {
+  supported: boolean;
+  contextState: AudioContextState | "none";
+  muted: boolean;
+  volume: number;
+  gesturePrimed: boolean;
+  storageKey: string;
+} {
+  if (typeof window === "undefined") {
+    return {
+      supported: false,
+      contextState: "none",
+      muted,
+      volume,
+      gesturePrimed: false,
+      storageKey: STORAGE_KEY,
+    };
+  }
+  try {
+    const ac = ctx;
+    return {
+      supported: true,
+      contextState: ac?.state ?? "none",
+      muted,
+      volume,
+      gesturePrimed,
+      storageKey: STORAGE_KEY,
+    };
+  } catch {
+    return {
+      supported: false,
+      contextState: "none",
+      muted,
+      volume,
+      gesturePrimed,
+      storageKey: STORAGE_KEY,
+    };
+  }
+}
+
+/** Play from a click handler; returns why audio did or did not run. */
+export async function playSfxWithFeedback(name: Sfx): Promise<SfxPlayResult> {
+  if (typeof window === "undefined") {
+    return { ok: false, reason: "unsupported", contextState: "none" };
+  }
+  if (muted) {
+    return { ok: false, reason: "muted", contextState: ctx?.state ?? "none" };
+  }
+  if (volume <= 0) {
+    return { ok: false, reason: "volume-zero", contextState: ctx?.state ?? "none" };
+  }
+  try {
+    primeAudioFromGesture();
+    const ac = getCtx();
+    if (ac.state !== "running") {
+      await ac.resume();
+    }
+    const state = getCtx().state;
+    if (state !== "running") {
+      return { ok: false, reason: "context-blocked", contextState: state };
+    }
+    playTones(name);
+    return { ok: true, contextState: state };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "error",
+      contextState: ctx?.state ?? "none",
+      detail: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 export function playSfx(name: Sfx) {
   if (typeof window === "undefined" || muted || volume <= 0) return;
-  void unlockAudio().then((ok) => {
-    if (!ok || muted) return;
-    playTones(name);
-  });
+  primeAudioFromGesture();
+  try {
+    const ac = getCtx();
+    if (ac.state === "running") {
+      runSfx(name);
+      return;
+    }
+    void ac.resume().then(() => {
+      if (!muted && volume > 0) runSfx(name);
+    });
+  } catch {
+    /* ignore */
+  }
 }
 
 if (typeof window !== "undefined") {

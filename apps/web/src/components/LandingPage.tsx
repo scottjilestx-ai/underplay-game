@@ -60,7 +60,7 @@ export function LandingPage() {
           <div className="shrink-0 flex flex-col gap-3 sm:items-end">
             <DeckSelector compact />
             <ThemeSelector compact />
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
               <Link
                 href="/play"
                 className={`px-6 py-2.5 rounded-xl bg-gradient-to-r ${theme.buttonGradient} text-black font-semibold hover:opacity-90 transition text-center text-sm sm:text-base`}
@@ -72,6 +72,12 @@ export function LandingPage() {
                 className={`px-6 py-2.5 rounded-xl border ${theme.buttonBorder} bg-black/30 text-theme-ink font-semibold hover:bg-black/45 transition text-center text-sm sm:text-base`}
               >
                 Play online
+              </Link>
+              <Link
+                href="/sounds"
+                className="px-6 py-2.5 rounded-xl border border-theme-border bg-black/30 text-theme-muted font-semibold hover:text-theme-ink hover:bg-black/45 transition text-center text-sm sm:text-base"
+              >
+                Sound test
               </Link>
             </div>
           </div>
@@ -115,7 +121,10 @@ export function LandingPage() {
         </section>
 
         <p className="text-center text-theme-muted text-xs pb-4">
-          {BRAND_NAME}: Undercut clears the stack · Overcut skips a turn
+          {BRAND_NAME}: Undercut clears the stack · Overcut skips a turn ·{" "}
+          <Link href="/sounds" className="underline hover:text-theme-ink transition">
+            Sound diagnostics
+          </Link>
         </p>
       </div>
     </ScrollPage>
