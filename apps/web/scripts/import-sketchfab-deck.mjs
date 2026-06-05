@@ -24,22 +24,41 @@ const BICYCLE_FACES = path.join(WEB_ROOT, "public", "cards", "decks", "bicycle",
 const FACE_W = 360;
 const FACE_H = 520;
 
+/** Atlas layout: 13×4 faces (top), gap ~y 2080–2304, 13×4 backs (bottom). */
 const ATLAS_W = 4096;
 const ATLAS_H = 4096;
 const COLS = 13;
-const FACE_ROWS = 4;
+const CELL_W = Math.floor(ATLAS_W / COLS);
+const FACE_ROW_H = 520;
+const BACK_Y = 2304;
+const BACK_ROW_H = Math.floor((ATLAS_H - BACK_Y) / 4);
 /** Hearts row in atlas (top row). */
 const SUIT_ROW = 0;
+/** Drop right gutter where the next atlas column bleeds in. */
+const FACE_CROP_W = CELL_W - 22;
 
-const cardW = Math.round(ATLAS_W / COLS);
-const faceBandH = Math.round(ATLAS_H * 0.52);
-const cardH = Math.round(faceBandH / FACE_ROWS);
-const backY = faceBandH;
-const backH = Math.round((ATLAS_H - faceBandH) / 3);
-const backW = Math.round(ATLAS_W / 10);
-
+/** Atlas columns are A,2…K; game values are 2…13 → column index = value − 1. */
 function colForValue(value) {
   return value - 1;
+}
+
+function faceExtract(value) {
+  const col = colForValue(value);
+  return {
+    left: col * CELL_W,
+    top: SUIT_ROW * FACE_ROW_H,
+    width: FACE_CROP_W,
+    height: FACE_ROW_H,
+  };
+}
+
+function backExtract() {
+  return {
+    left: 0,
+    top: BACK_Y,
+    width: CELL_W,
+    height: BACK_ROW_H,
+  };
 }
 
 async function ensureDir(dir) {
@@ -70,26 +89,15 @@ async function main() {
   await ensureDir(facesDir);
 
   console.log("Atlas:", atlasPath);
-  console.log("Cell:", { cardW, cardH, backY, backW, backH });
+  console.log("Grid:", { CELL_W, FACE_CROP_W, FACE_ROW_H, BACK_Y, BACK_ROW_H });
 
   for (let value = 2; value <= 13; value++) {
-    const col = colForValue(value);
     const padded = String(value).padStart(2, "0");
-    await writeJpeg(path.join(facesDir, `${padded}.jpg`), atlasPath, {
-      left: col * cardW,
-      top: SUIT_ROW * cardH,
-      width: cardW,
-      height: cardH,
-    });
+    await writeJpeg(path.join(facesDir, `${padded}.jpg`), atlasPath, faceExtract(value));
     console.log(`  faces/${padded}.jpg`);
   }
 
-  await writeJpeg(path.join(OUT_DIR, "back.jpg"), atlasPath, {
-    left: 0,
-    top: backY,
-    width: backW,
-    height: backH,
-  });
+  await writeJpeg(path.join(OUT_DIR, "back.jpg"), atlasPath, backExtract());
   console.log("  back.jpg");
 
   for (const name of ["clear.jpg", "skip.jpg"]) {
