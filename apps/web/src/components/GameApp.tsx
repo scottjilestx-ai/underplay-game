@@ -85,10 +85,11 @@ import { nextLastPlayStackCount, type GameSetupConfig } from "@/lib/gameSetup";
 import {
   createOvercutHold,
   isOvercutPlay,
+  overcutHeldIncoming,
   overcutHeldOnTarget,
   type OvercutHold,
 } from "@/lib/overcutHold";
-import { canPlaySelection, findMoveForSelection } from "@/lib/playMove";
+import { buildTargetedMove, canPlaySelection } from "@/lib/playMove";
 import { OvercutPlaySlot } from "./OvercutPlaySlot";
 import { RoundEndOverlay } from "./RoundEndOverlay";
 
@@ -117,6 +118,8 @@ export function GameApp() {
   const [stackLastPlayCount, setStackLastPlayCount] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [skipTarget, setSkipTarget] = useState<number | null>(null);
+  const skipTargetRef = useRef<number | null>(null);
+  skipTargetRef.current = skipTarget;
   const [muted, setMutedState] = useState(false);
   const [vol, setVol] = useState(0.6);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -594,6 +597,9 @@ export function GameApp() {
     state && state.currentSeat === viewSeat && isAwaitingHigherConfirm(state),
   );
   const confirmRank = state?.pendingHigherConfirm?.rank ?? null;
+  const myTurn = Boolean(
+    state && state.phase === "playing" && state.currentSeat === viewSeat,
+  );
 
   const humanMoves = useMemo(() => {
     if (!state || state.phase !== "playing" || state.currentSeat !== viewSeat) return [];
@@ -609,39 +615,56 @@ export function GameApp() {
     );
   }, [state, awaitingConfirm, selected, viewSeat]);
 
-  const isSkipSelection = useMemo(() => {
-    if (!state || selected.length !== 1) return false;
-    const c = findInZones(state.players[viewSeat], selected[0]);
-    return c?.kind === "skip";
-  }, [state, selected, viewSeat]);
+  const selectedSpecial = useMemo(() => {
+    if (!state || selected.length !== 1 || !myTurn) return null;
+    return findInZones(state.players[state.currentSeat], selected[0]) ?? null;
+  }, [state, selected, myTurn]);
 
+  const isSkipSelection = selectedSpecial?.kind === "skip";
   const isFaceDownUndercutSelection = useMemo(() => {
-    if (!state || selected.length !== 1) return false;
+    if (!state || selected.length !== 1 || !myTurn) return false;
     const id = selected[0];
-    if (!state.players[viewSeat].faceDown.some((c) => c.id === id)) return false;
-    const c = findInZones(state.players[viewSeat], id);
-    return c?.kind === "clear";
-  }, [state, selected, viewSeat]);
+    const seat = state.currentSeat;
+    if (!state.players[seat].faceDown.some((c) => c.id === id)) return false;
+    return selectedSpecial?.kind === "clear";
+  }, [state, selected, myTurn, selectedSpecial?.kind]);
 
   const needsPlayTarget = isSkipSelection || isFaceDownUndercutSelection;
   const playTargetSeat = needsPlayTarget ? skipTarget : null;
 
-  const canPlay = useMemo(() => {
-    if (!selected.length || !state) return false;
-    return canPlaySelection(humanMoves, selected, {
+  const targetPlayOptions = useMemo(
+    () => ({
       needsTarget: needsPlayTarget,
       targetSeat: playTargetSeat,
+    }),
+    [needsPlayTarget, playTargetSeat],
+  );
+
+  const canPlay = useMemo(() => {
+    if (!selected.length || !state || !myTurn) return false;
+    const seat = state.currentSeat;
+    return canPlaySelection(legalMoves(state, seat), selected, targetPlayOptions);
+  }, [state, selected, myTurn, targetPlayOptions]);
+
+  const resolveHumanMove = useCallback((): Move | undefined => {
+    if (!state || !myTurn || !selected.length) return undefined;
+    const seat = state.currentSeat;
+    const targetSeat = needsPlayTarget ? skipTargetRef.current : null;
+    return buildTargetedMove(state, seat, selected, {
+      needsTarget: needsPlayTarget,
+      targetSeat,
     });
-  }, [humanMoves, selected, needsPlayTarget, playTargetSeat, state]);
+  }, [state, myTurn, selected, needsPlayTarget]);
 
   const playTargetOptions = useMemo(() => {
-    if (!state || !needsPlayTarget) return [];
+    if (!state || !needsPlayTarget || !myTurn) return [];
+    const actor = state.currentSeat;
     return state.players.filter((p) => {
-      if (p.seat === viewSeat) return false;
+      if (p.seat === actor) return false;
       if (isSkipSelection && p.pendingSkip) return false;
       return true;
     });
-  }, [state, viewSeat, needsPlayTarget, isSkipSelection]);
+  }, [state, myTurn, needsPlayTarget, isSkipSelection]);
 
   useEffect(() => {
     if (!needsPlayTarget || playTargetOptions.length === 0) return;
@@ -943,9 +966,8 @@ export function GameApp() {
   }
   const stackDisplay = gameConfigRef.current?.stackDisplay ?? "full";
   const me = state.players[viewSeat];
-  const incomingOvercut = overcutHeldOnTarget(overcutHeld, viewSeat);
+  const incomingOvercut = overcutHeldIncoming(overcutHeld, viewSeat);
   const T = topValue(state.stack);
-  const myTurn = state.currentSeat === viewSeat && state.phase === "playing";
   const activePlayer = state.players[state.currentSeat];
   const sortedHand = sortHand(me.hand);
   const handInDealOrder = handDealOrder(state, viewSeat);
@@ -1311,10 +1333,7 @@ export function GameApp() {
                           : undefined
                     }
                     onClick={() => {
-                      const move = findMoveForSelection(humanMoves, selected, {
-                        needsTarget: needsPlayTarget,
-                        targetSeat: playTargetSeat,
-                      });
+                      const move = resolveHumanMove();
                       if (move) applyHumanMove(move);
                     }}
                     className="px-8 py-2 rounded-xl bg-amber-500 text-black font-semibold disabled:opacity-40"

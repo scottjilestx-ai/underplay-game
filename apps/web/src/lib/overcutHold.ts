@@ -42,8 +42,22 @@ export function createOvercutHold(
   cards: Card[],
 ): OvercutHold | null {
   if (!isOvercutPlay(cards)) return null;
-  const targetSeat = resolveSkipTarget(prev, next, move);
+
+  let targetSeat = -1;
+  if (move.targetSeat != null) {
+    const t = move.targetSeat;
+    if (
+      next.players[t]?.pendingSkip &&
+      !prev.players[t]?.pendingSkip
+    ) {
+      targetSeat = t;
+    }
+  }
+  if (targetSeat < 0) {
+    targetSeat = resolveSkipTarget(prev, next, move);
+  }
   if (targetSeat < 0) return null;
+
   return {
     cardId: cards[0].id,
     card: cards[0],
@@ -52,11 +66,22 @@ export function createOvercutHold(
   };
 }
 
+/** Overcut aimed at this seat (including when you played it on an opponent). */
 export function overcutHeldOnTarget(
   holds: OvercutHold[],
   seat: number,
 ): OvercutHold | undefined {
   return holds.find((h) => h.targetSeat === seat);
+}
+
+/** Overcut an opponent played on you — not one you just played on someone else. */
+export function overcutHeldIncoming(
+  holds: OvercutHold[],
+  seat: number,
+): OvercutHold | undefined {
+  return holds.find(
+    (h) => h.targetSeat === seat && h.playedBySeat !== seat,
+  );
 }
 
 /** @deprecated use resolveSkipTarget */
