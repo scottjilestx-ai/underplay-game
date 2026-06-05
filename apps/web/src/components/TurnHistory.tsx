@@ -81,11 +81,6 @@ export function TurnHistory({ entries, reducedMotion, floating }: Props) {
               );
             })}
           </AnimatePresence>
-          <li
-            data-turn-history-land
-            className="min-h-[2.5rem] rounded-xl border border-transparent"
-            aria-hidden
-          />
         </motion.ul>
       )}
       {playCount > 0 && entries.length > 0 ? (

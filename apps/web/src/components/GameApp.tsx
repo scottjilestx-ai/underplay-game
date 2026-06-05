@@ -79,12 +79,6 @@ import { TurnStatusTile } from "./TurnStatusTile";
 import { OpponentHandFan } from "./OpponentHandFan";
 import { stackZoneHeightRem } from "@/lib/cardDimensions";
 import { buildFlySpecs, type FlyingCardSpec } from "@/lib/cardFly";
-import {
-  PLAY_SUMMARY_HOLD_MS,
-  summarizeHigherExtension,
-  summarizeStackPlay,
-} from "@/lib/playSummary";
-import { PlaySummaryFly, type PlaySummaryPayload } from "./PlaySummaryFly";
 import { GameLobby } from "./GameLobby";
 import { nextLastPlayStackCount, type GameSetupConfig } from "@/lib/gameSetup";
 
@@ -132,13 +126,6 @@ export function GameApp() {
   const slotMapsRef = useRef<Record<number, SlotMap>>({});
   const flyCommitRef = useRef<(() => void) | null>(null);
   const dealTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const summaryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const summaryQueueRef = useRef<
-    { player: string; action: string; line: string }[]
-  >([]);
-  /** Sync flag — React playSummary state lags behind startPlaySummary by a frame. */
-  const summaryBusyRef = useRef(false);
-  const [playSummary, setPlaySummary] = useState<PlaySummaryPayload | null>(null);
   const [dealtDownIds, setDealtDownIds] = useState<Set<string>>(new Set());
   const [dealtUpIds, setDealtUpIds] = useState<Set<string>>(new Set());
   const [stockCounts, setStockCounts] = useState<Record<number, number>>({});
@@ -161,11 +148,6 @@ export function GameApp() {
     "hand-sort",
   ];
 
-  const clearSummaryTimers = useCallback(() => {
-    for (const t of summaryTimersRef.current) clearTimeout(t);
-    summaryTimersRef.current = [];
-  }, []);
-
   const quitToMenu = useCallback(() => {
     if (
       state &&
@@ -175,10 +157,6 @@ export function GameApp() {
     }
     for (const t of dealTimersRef.current) clearTimeout(t);
     dealTimersRef.current = [];
-    clearSummaryTimers();
-    summaryBusyRef.current = false;
-    setPlaySummary(null);
-    summaryQueueRef.current = [];
     setFlyingSpecs(null);
     setFlyDeal(false);
     setStockDealFly(false);
@@ -189,7 +167,7 @@ export function GameApp() {
     setSelected([]);
     setTurnLog([]);
     router.push("/");
-  }, [state, clearSummaryTimers, router]);
+  }, [state, router]);
 
   useEffect(() => {
     setMuted(muted);
@@ -203,8 +181,6 @@ export function GameApp() {
     mq.addEventListener("change", fn);
     return () => mq.removeEventListener("change", fn);
   }, []);
-
-  useEffect(() => () => clearSummaryTimers(), [clearSummaryTimers]);
 
   const runDealAnimation = useCallback(() => {
     for (const t of dealTimersRef.current) clearTimeout(t);
@@ -532,10 +508,6 @@ export function GameApp() {
       setScreen("game");
       setLastEvent("");
       setTurnLog([]);
-      clearSummaryTimers();
-      summaryBusyRef.current = false;
-      setPlaySummary(null);
-      summaryQueueRef.current = [];
       setDealtDownIds(new Set());
       setDealtUpIds(new Set());
       setStockCounts({});
@@ -598,46 +570,6 @@ export function GameApp() {
     },
     [],
   );
-
-  const startPlaySummary = useCallback(
-    (player: string, historyAction: string, line: string) => {
-      clearSummaryTimers();
-      summaryBusyRef.current = true;
-      const id = `ps-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      setPlaySummary({ id, player, action: historyAction, line, phase: "hold" });
-      summaryTimersRef.current.push(
-        setTimeout(() => {
-          setPlaySummary((s) => (s?.id === id ? { ...s, phase: "fly" } : s));
-        }, PLAY_SUMMARY_HOLD_MS),
-      );
-    },
-    [clearSummaryTimers],
-  );
-
-  const enqueuePlaySummary = useCallback(
-    (player: string, historyAction: string, line: string) => {
-      if (reducedMotion) return;
-      const item = { player, action: historyAction, line };
-      if (summaryBusyRef.current) {
-        summaryQueueRef.current.push(item);
-        return;
-      }
-      startPlaySummary(player, historyAction, line);
-    },
-    [reducedMotion, startPlaySummary],
-  );
-
-  const completePlaySummary = useCallback(() => {
-    if (!playSummary) return;
-    clearSummaryTimers();
-    setPlaySummary(null);
-    const next = summaryQueueRef.current.shift();
-    if (next) {
-      startPlaySummary(next.player, next.action, next.line);
-    } else {
-      summaryBusyRef.current = false;
-    }
-  }, [playSummary, clearSummaryTimers, startPlaySummary]);
 
   const finishFly = useCallback((cardIds: string[], commit: () => void) => {
     setLandedCardIds(new Set(cardIds));
@@ -714,14 +646,9 @@ export function GameApp() {
         const next = applyMove(prev, move);
         const action = turnLogMoveAction(prev, next, move);
         pushTurn(playerName, prev.currentSeat, action, turnEndedAfterMove(prev, next));
-        enqueuePlaySummary(
-          playerName,
-          action,
-          summarizeStackPlay(playerName, prev, next, move),
-        );
       });
     },
-    [state, deckPhase, patchState, enqueuePlaySummary, playAnimating, runWithFly, pushTurn],
+    [state, deckPhase, patchState, playAnimating, runWithFly, pushTurn],
   );
 
   const runCpuTurn = useCallback(() => {
@@ -764,13 +691,8 @@ export function GameApp() {
       const next = applyMove(s, move);
       const action = turnLogMoveAction(s, next, move);
       pushTurn(playerName, seat, action, turnEndedAfterMove(s, next));
-      enqueuePlaySummary(
-        playerName,
-        action,
-        summarizeStackPlay(playerName, s, next, move),
-      );
     });
-  }, [deckPhase, patchState, enqueuePlaySummary, runWithFly, pushTurn]);
+  }, [deckPhase, patchState, runWithFly, pushTurn]);
 
   useEffect(() => {
     const s = state;
@@ -1016,13 +938,6 @@ export function GameApp() {
                     reducedMotion={reducedMotion}
                     landedCardIds={landedCardIds}
                   />
-                  {playSummary && showFloaters && (
-                    <PlaySummaryFly
-                      summary={playSummary}
-                      reducedMotion={reducedMotion}
-                      onFlyComplete={completePlaySummary}
-                    />
-                  )}
                   {awaitingConfirm && reveal >= 3 && (
                     <motion.button
                       type="button"
@@ -1081,10 +996,6 @@ export function GameApp() {
                 patchState(n);
                 setLastEvent("");
                 setTurnLog([]);
-                clearSummaryTimers();
-                summaryBusyRef.current = false;
-                setPlaySummary(null);
-                summaryQueueRef.current = [];
                 runDealAnimation();
               }
             }}
@@ -1189,11 +1100,6 @@ export function GameApp() {
                           const suffix = turnLogHigherExtensionResult(prev, next);
                           const action = turnLogHigherExtension(prev, ids) + suffix;
                           pushTurn(playerName, prev.currentSeat, action, false);
-                          enqueuePlaySummary(
-                            playerName,
-                            action,
-                            summarizeHigherExtension(playerName, prev, ids, suffix),
-                          );
                         });
                       }}
                       className="px-6 py-2 rounded-xl bg-amber-500 text-black font-semibold disabled:opacity-40"
