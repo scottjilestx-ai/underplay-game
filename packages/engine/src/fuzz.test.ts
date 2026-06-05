@@ -18,12 +18,14 @@ function playRandomMatch(seed: number, players: number) {
   let rounds = 0;
   while (state.phase !== "matchOver" && rounds < 6 && turns < 400) {
     while (state.phase === "playing" && turns++ < 400) {
+      const seat = state.currentSeat;
+      const diff = state.players[seat].difficulty ?? "medium";
       if (isAwaitingHigherConfirm(state)) {
-        state = resolveHigherConfirm(state, state.currentSeat);
+        state = resolveHigherConfirm(state, seat, diff);
       } else {
-        const moves = legalMoves(state, state.currentSeat);
+        const moves = legalMoves(state, seat);
         expect(moves.length).toBeGreaterThan(0);
-        const move = chooseMove(state, state.currentSeat, "medium") ?? moves[0];
+        const move = chooseMove(state, seat, diff) ?? moves[0];
         state = applyMove(state, move);
       }
       expect(checkConservation(state)).toBe(true);

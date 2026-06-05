@@ -660,7 +660,7 @@ export function GameApp() {
     const playerName = p.name;
 
     if (isAwaitingHigherConfirm(s)) {
-      const next = resolveHigherConfirm(s, seat);
+      const next = resolveHigherConfirm(s, seat, p.difficulty ?? "medium");
       detectHigherConfirmSfx(s, next);
       pushTurn(
         playerName,
