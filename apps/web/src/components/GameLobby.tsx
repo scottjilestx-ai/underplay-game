@@ -60,7 +60,11 @@ function Pill<T extends string | number>({
   );
 }
 
-const DIFFICULTIES: CpuDifficulty[] = ["easy", "medium", "hard"];
+const CPU_DIFFICULTY_OPTIONS: { id: CpuDifficulty; label: string }[] = [
+  { id: "easy", label: "Easy" },
+  { id: "medium", label: "Med" },
+  { id: "hard", label: "Hard" },
+];
 
 export function GameLobby({ startError, onStart }: Props) {
   const [mode, setMode] = useState<GameMode>("cpu");
@@ -183,6 +187,12 @@ export function GameLobby({ startError, onStart }: Props) {
             ))}
           </div>
 
+          {mode === "cpu" && opponentCount > 0 && (
+            <p className="text-zinc-600 text-xs mb-2 -mt-2">
+              Set difficulty per CPU — each opponent plays at its own level.
+            </p>
+          )}
+
           <div className="space-y-2.5 mb-6">
             {opponents.slice(0, opponentCount).map((opp, i) => (
               <div
@@ -198,19 +208,24 @@ export function GameLobby({ startError, onStart }: Props) {
                   aria-label={`Opponent ${i + 1} name`}
                 />
                 {mode === "cpu" && (
-                  <div className="flex gap-1 shrink-0">
-                    {DIFFICULTIES.map((d) => (
+                  <div
+                    className="flex gap-1 shrink-0"
+                    role="group"
+                    aria-label={`${opp.name || `Opponent ${i + 1}`} difficulty`}
+                  >
+                    {CPU_DIFFICULTY_OPTIONS.map(({ id, label }) => (
                       <button
-                        key={d}
+                        key={id}
                         type="button"
-                        onClick={() => updateOpponent(i, { difficulty: d })}
-                        className={`px-2 py-1 rounded-md text-[11px] font-semibold capitalize transition ${
-                          opp.difficulty === d
+                        onClick={() => updateOpponent(i, { difficulty: id })}
+                        aria-pressed={opp.difficulty === id}
+                        className={`min-w-[2.25rem] px-2 py-1 rounded-md text-[11px] font-semibold transition ${
+                          opp.difficulty === id
                             ? "bg-emerald-500 text-black"
                             : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"
                         }`}
                       >
-                        {d}
+                        {label}
                       </button>
                     ))}
                   </div>
