@@ -136,6 +136,8 @@ export function GameApp() {
   const summaryQueueRef = useRef<
     { player: string; action: string; line: string }[]
   >([]);
+  /** Sync flag — React playSummary state lags behind startPlaySummary by a frame. */
+  const summaryBusyRef = useRef(false);
   const [playSummary, setPlaySummary] = useState<PlaySummaryPayload | null>(null);
   const [dealtDownIds, setDealtDownIds] = useState<Set<string>>(new Set());
   const [dealtUpIds, setDealtUpIds] = useState<Set<string>>(new Set());
@@ -167,6 +169,7 @@ export function GameApp() {
     for (const t of dealTimersRef.current) clearTimeout(t);
     dealTimersRef.current = [];
     clearSummaryTimers();
+    summaryBusyRef.current = false;
     setPlaySummary(null);
     summaryQueueRef.current = [];
     setFlyingSpecs(null);
@@ -517,6 +520,7 @@ export function GameApp() {
       setLastEvent("");
       setTurnLog([]);
       clearSummaryTimers();
+      summaryBusyRef.current = false;
       setPlaySummary(null);
       summaryQueueRef.current = [];
       setDealtDownIds(new Set());
@@ -582,6 +586,7 @@ export function GameApp() {
   const startPlaySummary = useCallback(
     (player: string, historyAction: string, line: string) => {
       clearSummaryTimers();
+      summaryBusyRef.current = true;
       const id = `ps-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       setPlaySummary({ id, player, action: historyAction, line, phase: "hold" });
       summaryTimersRef.current.push(
@@ -595,28 +600,28 @@ export function GameApp() {
 
   const enqueuePlaySummary = useCallback(
     (player: string, historyAction: string, line: string) => {
-      if (reducedMotion) {
-        pushTurn(player, historyAction);
-        return;
-      }
+      if (reducedMotion) return;
       const item = { player, action: historyAction, line };
-      if (playSummary) {
+      if (summaryBusyRef.current) {
         summaryQueueRef.current.push(item);
         return;
       }
       startPlaySummary(player, historyAction, line);
     },
-    [reducedMotion, pushTurn, playSummary, startPlaySummary],
+    [reducedMotion, startPlaySummary],
   );
 
   const completePlaySummary = useCallback(() => {
     if (!playSummary) return;
-    pushTurn(playSummary.player, playSummary.action);
     clearSummaryTimers();
     setPlaySummary(null);
     const next = summaryQueueRef.current.shift();
-    if (next) startPlaySummary(next.player, next.action, next.line);
-  }, [playSummary, pushTurn, clearSummaryTimers, startPlaySummary]);
+    if (next) {
+      startPlaySummary(next.player, next.action, next.line);
+    } else {
+      summaryBusyRef.current = false;
+    }
+  }, [playSummary, clearSummaryTimers, startPlaySummary]);
 
   const finishFly = useCallback((cardIds: string[], commit: () => void) => {
     setLandedCardIds(new Set(cardIds));
@@ -686,14 +691,16 @@ export function GameApp() {
 
       runWithFly(prev.currentSeat, move.cardIds, cards, commit, () => {
         const next = applyMove(prev, move);
+        const action = turnLogMoveAction(prev, next, move);
+        pushTurn(playerName, action);
         enqueuePlaySummary(
           playerName,
-          turnLogMoveAction(prev, next, move),
+          action,
           summarizeStackPlay(playerName, prev, next, move),
         );
       });
     },
-    [state, deckPhase, patchState, enqueuePlaySummary, playAnimating, runWithFly],
+    [state, deckPhase, patchState, enqueuePlaySummary, playAnimating, runWithFly, pushTurn],
   );
 
   useEffect(() => {
@@ -734,15 +741,17 @@ export function GameApp() {
 
       runWithFly(seat, move.cardIds, cards, commit, () => {
         const next = applyMove(state, move);
+        const action = turnLogMoveAction(state, next, move);
+        pushTurn(playerName, action);
         enqueuePlaySummary(
           playerName,
-          turnLogMoveAction(state, next, move),
+          action,
           summarizeStackPlay(playerName, state, next, move),
         );
       });
     }, delay);
     return () => clearTimeout(t);
-  }, [state, deckPhase, reducedMotion, patchState, enqueuePlaySummary, runWithFly]);
+  }, [state, deckPhase, reducedMotion, patchState, enqueuePlaySummary, runWithFly, pushTurn]);
 
   function detectSfx(prev: GameState, next: GameState, move: Move) {
     const seat = prev.currentSeat;
@@ -1110,6 +1119,7 @@ export function GameApp() {
                 setLastEvent("");
                 setTurnLog([]);
                 clearSummaryTimers();
+                summaryBusyRef.current = false;
                 setPlaySummary(null);
                 summaryQueueRef.current = [];
                 runDealAnimation();
@@ -1214,9 +1224,11 @@ export function GameApp() {
                         runWithFly(humanSeat, ids, cards, commit, () => {
                           const next = extendHigherPlay(prev, ids);
                           const suffix = turnLogHigherExtensionResult(prev, next);
+                          const action = turnLogHigherExtension(prev, ids) + suffix;
+                          pushTurn(playerName, action);
                           enqueuePlaySummary(
                             playerName,
-                            turnLogHigherExtension(prev, ids) + suffix,
+                            action,
                             summarizeHigherExtension(playerName, prev, ids, suffix),
                           );
                         });
