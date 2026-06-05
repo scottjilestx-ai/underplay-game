@@ -42,12 +42,12 @@ export function PlayingCard({
       whileTap={onClick && !reducedMotion ? { scale: 0.97 } : undefined}
       className={`${w} relative shrink-0 ${onClick ? "cursor-pointer" : "cursor-default"} ${selected ? "ring-2 ring-[var(--theme-accent)] ring-offset-2 ring-offset-[var(--table-felt-base)] z-10" : ""}`}
     >
-      <div className="absolute inset-0 rounded-[0.35rem] shadow-[0_10px_28px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.35)] overflow-hidden bg-white">
+      <div className="absolute inset-0 rounded-[0.35rem] shadow-[0_10px_28px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.35)] overflow-hidden bg-[#f2ebe0]">
         <Image
           src={src}
           alt={showBack ? "Card back" : "Playing card"}
           fill
-          className="object-contain"
+          className="object-cover"
           sizes={small ? "56px" : "72px"}
           priority={showBack}
         />

@@ -87,22 +87,15 @@ function skipSvg() {
   </svg>`);
 }
 
-export async function buildSketchfabSpecialFaces(outDir, textureJpeg) {
-  const paper = await sharp(textureJpeg)
-    .resize(W, H, { fit: "cover", position: "centre" })
-    .modulate({ brightness: 1.05, saturation: 0.35 })
-    .blur(1.2)
-    .toBuffer();
-
+export async function buildSketchfabSpecialFaces(outDir) {
   const pairs = [
     ["clear.jpg", clearSvg()],
     ["skip.jpg", skipSvg()],
   ];
 
   for (const [name, svg] of pairs) {
-    const overlay = await sharp(svg).png().toBuffer();
-    await sharp(paper)
-      .composite([{ input: overlay, blend: "over" }])
+    await sharp(svg)
+      .resize(W, H, { fit: "cover", position: "centre" })
       .jpeg({ quality: 88, mozjpeg: true })
       .toFile(`${outDir}/${name}`);
   }

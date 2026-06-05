@@ -7,6 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 import { buildSketchfabSpecialFaces } from "./sketchfab-special-faces.mjs";
+import { tightBounds } from "./sketchfab-trim.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = path.join(__dirname, "..");
@@ -21,9 +22,9 @@ const TEXTURES_DIR = path.join(
 );
 const OUT_DIR = path.join(WEB_ROOT, "public", "cards", "decks", "sketchfab");
 
-
 const FACE_W = 360;
 const FACE_H = 520;
+const CARD_ASPECT = FACE_W / FACE_H;
 
 /** Atlas layout: 13×4 faces (top), gap ~y 2080–2304, 13×4 backs (bottom). */
 const ATLAS_W = 4096;
@@ -33,12 +34,9 @@ const CELL_W = Math.floor(ATLAS_W / COLS);
 const FACE_ROW_H = 520;
 const BACK_Y = 2304;
 const BACK_ROW_H = Math.floor((ATLAS_H - BACK_Y) / 4);
-/** Hearts row in atlas (top row). */
 const SUIT_ROW = 0;
-/** Drop right gutter where the next atlas column bleeds in. */
 const FACE_CROP_W = CELL_W - 22;
 
-/** Atlas columns are A,2…K; game values are 2…13 → column index = value − 1. */
 function colForValue(value) {
   return value - 1;
 }
@@ -73,12 +71,16 @@ async function findBaseColorPath() {
   return path.join(TEXTURES_DIR, hit);
 }
 
-async function writeJpeg(outPath, input, extract) {
-  let pipe = sharp(input);
-  if (extract) {
-    pipe = pipe.extract(extract);
-  }
-  await pipe
+async function writeTrimmedJpeg(outPath, input, extract) {
+  const cell = await sharp(input).extract(extract).raw().toBuffer({ resolveWithObject: true });
+  const bounds = tightBounds(cell.data, cell.info.width, cell.info.height, {
+    capAspect: CARD_ASPECT,
+  });
+
+  await sharp(cell.data, {
+    raw: { width: cell.info.width, height: cell.info.height, channels: cell.info.channels },
+  })
+    .extract(bounds)
     .resize(FACE_W, FACE_H, { fit: "cover", position: "centre" })
     .jpeg({ quality: 88, mozjpeg: true })
     .toFile(outPath);
@@ -94,15 +96,14 @@ async function main() {
 
   for (let value = 2; value <= 13; value++) {
     const padded = String(value).padStart(2, "0");
-    await writeJpeg(path.join(facesDir, `${padded}.jpg`), atlasPath, faceExtract(value));
+    await writeTrimmedJpeg(path.join(facesDir, `${padded}.jpg`), atlasPath, faceExtract(value));
     console.log(`  faces/${padded}.jpg`);
   }
 
-  await writeJpeg(path.join(OUT_DIR, "back.jpg"), atlasPath, backExtract());
+  await writeTrimmedJpeg(path.join(OUT_DIR, "back.jpg"), atlasPath, backExtract());
   console.log("  back.jpg");
 
-  const textureSample = path.join(facesDir, "08.jpg");
-  await buildSketchfabSpecialFaces(facesDir, textureSample);
+  await buildSketchfabSpecialFaces(facesDir);
   console.log("  faces/clear.jpg (sketchfab special)");
   console.log("  faces/skip.jpg (sketchfab special)");
 

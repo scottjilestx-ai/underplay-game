@@ -24,8 +24,8 @@ export function DeckCardImage({
   const src = showBack ? deckBackSrc(deckId) : deckFaceSrc(deckId, card!);
 
   return (
-    <div className={`relative ${className} overflow-hidden bg-white`}>
-      <Image src={src} alt="" fill className="object-contain" sizes={sizes} />
+    <div className={`relative ${className} overflow-hidden bg-[#f2ebe0]`}>
+      <Image src={src} alt="" fill className="object-cover" sizes={sizes} />
     </div>
   );
 }

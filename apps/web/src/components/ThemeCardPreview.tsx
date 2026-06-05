@@ -22,7 +22,7 @@ export function DeckCardMini({ deckId, className = "" }: Props) {
     <div
       className={`relative w-11 h-[3.9rem] rounded-[0.3rem] overflow-hidden shadow-md bg-white ${className}`}
     >
-      <Image src={deckBackSrc(deckId)} alt="" fill className="object-contain" sizes="44px" />
+      <Image src={deckBackSrc(deckId)} alt="" fill className="object-cover" sizes="44px" />
     </div>
   );
 }
@@ -48,7 +48,7 @@ export function DeckCardStrip({ deckId, className = "" }: Props) {
             }
             alt=""
             fill
-            className="object-contain"
+            className="object-cover"
             sizes="52px"
           />
         </div>
