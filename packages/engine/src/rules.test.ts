@@ -171,6 +171,35 @@ describe("face-down flip", () => {
   });
 });
 
+describe("face-down undercut", () => {
+  it("requires a target and sends the stack to that player", () => {
+    const s = minimalState();
+    const pool = gatherCards(s);
+    const clr = pool.find((c) => c.kind === "clear")!;
+    const three = pool.find((c) => c.kind === "play" && c.value === 3)!;
+    const four = pool.find((c) => c.kind === "play" && c.value === 4)!;
+    s.leftover = s.leftover.filter(
+      (c) => c.id !== clr.id && c.id !== three.id && c.id !== four.id,
+    );
+    s.stack = [three, four];
+    s.players[0].hand = [];
+    s.players[0].faceUp = [];
+    s.players[0].faceDown = [{ ...clr, slot: 0 }];
+    s.currentSeat = 0;
+    expect(
+      legalMoves(s, 0).some(
+        (m) => m.cardIds[0] === clr.id && m.targetSeat === 1,
+      ),
+    ).toBe(true);
+    const next = applyMove(s, { cardIds: [clr.id], targetSeat: 1 });
+    expect(next.stack).toEqual([]);
+    expect(next.players[1].hand.map((c) => c.id)).toEqual(
+      expect.arrayContaining([three.id, four.id, clr.id]),
+    );
+    expect(next.currentSeat).toBe(0);
+  });
+});
+
 describe("clear", () => {
   it("empties stack and continues", () => {
     const s = minimalState();

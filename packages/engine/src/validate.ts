@@ -1,6 +1,18 @@
 import { findCard, isOut, isFaceDownUncovered } from "./player.js";
 import type { GameState, Move, ValidationResult } from "./types.js";
 
+function validateTarget(
+  state: GameState,
+  seat: number,
+  targetSeat: number | undefined,
+): ValidationResult {
+  if (targetSeat == null) return { ok: false, error: "choose target" };
+  if (targetSeat === seat) return { ok: false, error: "invalid target" };
+  const target = state.players[targetSeat];
+  if (!target || isOut(target)) return { ok: false, error: "invalid target" };
+  return { ok: true };
+}
+
 export function validate(state: GameState, seat: number, move: Move): ValidationResult {
   if (state.phase !== "playing") return { ok: false, error: "not playing" };
   if (seat !== state.currentSeat) return { ok: false, error: "not your turn" };
@@ -23,6 +35,14 @@ export function validate(state: GameState, seat: number, move: Move): Validation
     const companions = ids.filter((id) => id !== faceDownIds[0]);
     if (companions.length) {
       return { ok: false, error: "flip face-down alone; add matches after confirm" };
+    }
+    const flipped = cards[0]!;
+    if (flipped.kind === "clear" || flipped.kind === "skip") {
+      const tv = validateTarget(state, seat, move.targetSeat);
+      if (!tv.ok) return tv;
+      if (flipped.kind === "skip" && state.players[move.targetSeat!]!.pendingSkip) {
+        return { ok: false, error: "already skipped" };
+      }
     }
     return { ok: true };
   }

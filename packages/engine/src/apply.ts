@@ -26,7 +26,17 @@ export function applyMove(state: GameState, move: Move): GameState {
   let keepsTurn = false;
 
   if (played[0].kind === "clear") {
-    s.deadPile.push(...s.stack, ...played);
+    if (isFaceDownFlip && move.targetSeat != null) {
+      const target = move.targetSeat;
+      const tp = s.players[target];
+      if (tp && !isOut(tp)) {
+        tp.hand.push(...s.stack, ...played);
+      } else {
+        s.deadPile.push(...s.stack, ...played);
+      }
+    } else {
+      s.deadPile.push(...s.stack, ...played);
+    }
     s.stack = [];
     keepsTurn = true;
   } else if (played[0].kind === "skip") {

@@ -62,6 +62,13 @@ export function turnLogMoveAction(
   const T = topValue(prev.stack);
 
   if (played.some((c) => c.kind === "clear")) {
+    const flippedUndercut = move.cardIds.some((id) =>
+      prev.players[seat].faceDown.some((c) => c.id === id),
+    );
+    if (flippedUndercut && move.targetSeat != null) {
+      const target = next.players[move.targetSeat]?.name ?? "opponent";
+      return `${phraseFlippedCards(played)} — stack to ${target}`;
+    }
     return `cleared the stack with ${cards}`;
   }
   if (played.some((c) => c.kind === "skip")) {

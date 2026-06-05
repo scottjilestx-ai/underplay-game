@@ -602,6 +602,36 @@ export function GameApp() {
     return c?.kind === "skip";
   }, [state, selected, viewSeat]);
 
+  const isFaceDownUndercutSelection = useMemo(() => {
+    if (!state || selected.length !== 1) return false;
+    const id = selected[0];
+    if (!state.players[viewSeat].faceDown.some((c) => c.id === id)) return false;
+    const c = findInZones(state.players[viewSeat], id);
+    return c?.kind === "clear";
+  }, [state, selected, viewSeat]);
+
+  const needsPlayTarget = isSkipSelection || isFaceDownUndercutSelection;
+
+  const playTargetOptions = useMemo(() => {
+    if (!state || !needsPlayTarget) return [];
+    return state.players.filter((p) => {
+      if (p.seat === viewSeat) return false;
+      if (isSkipSelection && p.pendingSkip) return false;
+      return true;
+    });
+  }, [state, viewSeat, needsPlayTarget, isSkipSelection]);
+
+  useEffect(() => {
+    if (!needsPlayTarget || playTargetOptions.length === 0) return;
+    if (
+      skipTarget != null &&
+      playTargetOptions.some((p) => p.seat === skipTarget)
+    ) {
+      return;
+    }
+    setSkipTarget(playTargetOptions[0].seat);
+  }, [needsPlayTarget, playTargetOptions, skipTarget, selected]);
+
   const heldValue = useMemo(() => {
     if (!state) return 0;
     const p = state.players[viewSeat];
@@ -790,8 +820,20 @@ export function GameApp() {
       next.currentSeat === seat && seat === viewSeat && next.phase === "playing";
 
     if (played.some((c) => c?.kind === "clear") || (next.stack.length === 0 && prev.stack.length > 0 && played[0]?.kind !== "skip")) {
-      playSfx(next.deadPile.length > prev.deadPile.length ? "tap" : "clear");
-      setLastEvent(next.stack.length === 0 && prev.stack.length > 0 ? "Tap-out! Play again." : "Stack cleared — play again.");
+      const flippedUndercut = move.cardIds.some((id) =>
+        prev.players[seat].faceDown.some((c) => c.id === id),
+      );
+      playSfx("clear");
+      if (flippedUndercut && move.targetSeat != null) {
+        const name = next.players[move.targetSeat]?.name ?? "opponent";
+        setLastEvent(`Undercut flipped — stack sent to ${name}. Play again.`);
+      } else {
+        setLastEvent(
+          next.stack.length === 0 && prev.stack.length > 0
+            ? "Tap-out! Play again."
+            : "Stack cleared — play again.",
+        );
+      }
     } else if (played.some((c) => c?.kind === "skip")) {
       playSfx("skip");
       setLastEvent(stillYourTurn ? "Skip played — your turn continues." : "Skip played.");
@@ -1138,21 +1180,27 @@ export function GameApp() {
               </div>
 
             <div className="flex flex-col items-center pt-2 pb-1 shrink-0 border-t border-amber-900/25 w-full">
-            {isSkipSelection && (
-              <div className="flex gap-2 items-center justify-center mb-2 w-full">
-                <span className="text-amber-200/70 text-sm">Skip target:</span>
-                {state.players
-                  .filter((p) => p.seat !== viewSeat && !p.pendingSkip)
-                  .map((p) => (
-                    <button
-                      key={p.seat}
-                      type="button"
-                      onClick={() => setSkipTarget(p.seat)}
-                      className={`px-3 py-1 rounded-lg text-sm ${skipTarget === p.seat ? "bg-rose-500 text-white" : "bg-black/40 text-amber-100"}`}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
+            {needsPlayTarget && (
+              <div className="flex flex-wrap gap-2 items-center justify-center mb-2 w-full px-2">
+                <span className="text-amber-200/70 text-sm shrink-0">
+                  {isFaceDownUndercutSelection ? "Send stack to:" : "Skip target:"}
+                </span>
+                {playTargetOptions.map((p) => (
+                  <button
+                    key={p.seat}
+                    type="button"
+                    onClick={() => setSkipTarget(p.seat)}
+                    className={`px-3 py-1 rounded-lg text-sm ${
+                      skipTarget === p.seat
+                        ? isFaceDownUndercutSelection
+                          ? "bg-amber-500 text-black"
+                          : "bg-rose-500 text-white"
+                        : "bg-black/40 text-amber-100"
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                ))}
               </div>
             )}
             <div className="flex items-center justify-center w-full max-w-lg px-2">

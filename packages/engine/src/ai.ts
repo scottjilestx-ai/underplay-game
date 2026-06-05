@@ -139,6 +139,19 @@ function evaluateMove(
         score += 25;
       }
     }
+    const fromFaceDown = state.players[seat].faceDown.some((c) =>
+      move.cardIds.includes(c.id),
+    );
+    if (fromFaceDown && move.targetSeat != null) {
+      const card = [...state.players[seat].hand, ...state.players[seat].faceUp, ...state.players[seat].faceDown].find(
+        (c) => c.id === move.cardIds[0],
+      );
+      if (card?.kind === "clear") {
+        const burden = totalHeld(next.players[move.targetSeat]!);
+        score +=
+          difficulty === "hard" ? burden * 45 : difficulty === "medium" ? burden * 22 : 8;
+      }
+    }
     return score;
   } catch {
     return -1_000_000;

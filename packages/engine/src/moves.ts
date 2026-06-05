@@ -1,5 +1,5 @@
 import { isAwaitingHigherConfirm } from "./confirm.js";
-import { uncoveredFaceDownCards } from "./player.js";
+import { isOut, uncoveredFaceDownCards } from "./player.js";
 import { validate } from "./validate.js";
 import type { Card, GameState, Move } from "./types.js";
 
@@ -41,7 +41,17 @@ export function legalMoves(state: GameState, seat: number): Move[] {
   };
 
   for (const fd of uncoveredFaceDownCards(player)) {
-    add({ cardIds: [fd.id] });
+    if (fd.kind === "clear" || fd.kind === "skip") {
+      for (let t = 0; t < state.players.length; t++) {
+        if (t === seat) continue;
+        const target = state.players[t];
+        if (!target || isOut(target)) continue;
+        if (fd.kind === "skip" && target.pendingSkip) continue;
+        add({ cardIds: [fd.id], targetSeat: t });
+      }
+    } else {
+      add({ cardIds: [fd.id] });
+    }
   }
 
   for (const c of player.hand) {
