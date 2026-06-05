@@ -38,6 +38,7 @@ export function PlayingCard({
   return (
     <motion.button
       type="button"
+      data-card-face={showBack ? "down" : "up"}
       onClick={onClick}
       disabled={!onClick}
       whileHover={onClick && !reducedMotion ? { y: -8, scale: 1.03 } : undefined}

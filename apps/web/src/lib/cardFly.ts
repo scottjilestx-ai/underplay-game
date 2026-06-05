@@ -68,8 +68,15 @@ function rectFromElement(el: Element, index: number, total: number): FlyRect {
 }
 
 export interface BuildFlySpecsOptions {
-  /** Card ids played from face-down table slots — flip before flying. */
+  /** Extra ids that must flip at source (face-down table plays). */
   revealBeforeFlyIds?: ReadonlySet<string>;
+}
+
+/** True when the fly clone should flip from back → face before moving. */
+export function sourceShowsCardBack(el: Element): boolean {
+  if (el.matches("[data-fly-source]")) return true;
+  const host = el.closest("[data-play-card]") ?? el;
+  return host.getAttribute("data-card-face") === "down";
 }
 
 /** @param sourceSeat CPU/opponent seat — uses [data-fly-source] when card elements are hidden */
@@ -96,7 +103,8 @@ export function buildFlySpecs(
       document.querySelector(`[data-play-card="${CSS.escape(id)}"]`) ?? fallbackSource;
     if (!el) continue;
     const from = rectFromElement(el, i, cardIds.length);
-    const revealBeforeFly = options?.revealBeforeFlyIds?.has(id) ?? false;
+    const revealBeforeFly =
+      sourceShowsCardBack(el) || (options?.revealBeforeFlyIds?.has(id) ?? false);
     specs.push({
       id,
       card,
@@ -112,13 +120,12 @@ export function buildFlySpecs(
 
 export function playFlyEndDelayS(specs: FlyingCardSpec[]): number {
   if (!specs.length) return 0;
+  const faceUpHoldS = FLY_FLIP_REVEAL_S;
   return Math.max(
-    ...specs.map(
-      (s) =>
-        s.delay +
-        (s.revealBeforeFly ? FLY_FLIP_REVEAL_S : 0) +
-        FLY_DURATION_S,
-    ),
+    ...specs.map((s) => {
+      const holdS = s.revealBeforeFly ? FLY_FLIP_REVEAL_S : faceUpHoldS;
+      return s.delay + holdS + FLY_DURATION_S;
+    }),
   );
 }
 

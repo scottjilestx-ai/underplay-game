@@ -16,6 +16,9 @@ import { PipCardFace } from "./PipCardFace";
 import { ThemedCardBack } from "./ThemedCardBack";
 import { ThemedCardFace } from "./ThemedCardFace";
 
+/** Brief beat at source so face-up hand plays show rank before flying. */
+const FACE_UP_HOLD_S = FLY_FLIP_REVEAL_S;
+
 interface Props {
   specs: FlyingCardSpec[];
   reducedMotion?: boolean;
@@ -61,7 +64,7 @@ function CardFaceContent({
   );
 }
 
-/** Back + face for a 3D flip at the source (face-down table plays). */
+/** Back + face: flip in place at source, then parent flies face-up. */
 function CardFlipFaces({
   card,
   themeId,
@@ -140,14 +143,18 @@ export function CardFlyOverlay({
   useEffect(() => {
     if (reducedMotion || !onCardLand || specs.length === 0) return;
     const timers = specs.map((spec) => {
-      const flip = spec.revealBeforeFly ? FLY_FLIP_REVEAL_S : 0;
+      const holdS = !dealFlight
+        ? spec.revealBeforeFly
+          ? FLY_FLIP_REVEAL_S
+          : FACE_UP_HOLD_S
+        : 0;
       return window.setTimeout(
         () => onCardLand(spec),
-        (spec.delay + flip + duration) * 1000,
+        (spec.delay + holdS + duration) * 1000,
       );
     });
     return () => timers.forEach((t) => clearTimeout(t));
-  }, [specs, reducedMotion, duration, onCardLand]);
+  }, [specs, reducedMotion, duration, onCardLand, dealFlight]);
 
   if (typeof document === "undefined") return null;
   if (reducedMotion || specs.length === 0) return null;
@@ -155,9 +162,53 @@ export function CardFlyOverlay({
   return createPortal(
     <div className="pointer-events-none fixed inset-0 z-[100]">
       {specs.map((spec) => {
-        const flipFirst = !dealFlight && !!spec.revealBeforeFly;
-        const flyDelay = spec.delay + (flipFirst ? FLY_FLIP_REVEAL_S : 0);
+        const isPlayFlight = !dealFlight;
+        const flipAtSource = isPlayFlight && !!spec.revealBeforeFly;
+        const holdAtSourceS = isPlayFlight
+          ? flipAtSource
+            ? FLY_FLIP_REVEAL_S
+            : FACE_UP_HOLD_S
+          : 0;
+        const moveDurationS = duration;
+        const totalPlayS = holdAtSourceS + moveDurationS;
         const showBackDuringDeal = Boolean(dealFlight && (spec.faceDown ?? true));
+
+        const stackEase = [...CARD_STACK_LAND_EASE] as [number, number, number, number];
+        const positionTransition = isPlayFlight
+          ? {
+              delay: spec.delay,
+              duration: totalPlayS,
+              times: [0, holdAtSourceS / totalPlayS, 1] as [number, number, number],
+              ease: stackEase,
+            }
+          : {
+              duration: moveDurationS,
+              delay: spec.delay,
+              ease:
+                stockDealFlight && stockDealDurationS != null
+                  ? ("linear" as const)
+                  : dealFlight
+                    ? ([0.22, 0.72, 0.15, 1] as [number, number, number, number])
+                    : stackEase,
+            };
+
+        const positionAnimate = isPlayFlight
+          ? {
+              left: [spec.from.left, spec.from.left, spec.to.left],
+              top: [spec.from.top, spec.from.top, spec.to.top],
+              width: [spec.from.width, spec.from.width, spec.to.width],
+              height: [spec.from.height, spec.from.height, spec.to.height],
+              opacity: 1,
+              rotate: (spec.delay / FLY_DURATION_S) * 4,
+            }
+          : {
+              left: spec.to.left,
+              top: spec.to.top,
+              width: spec.to.width,
+              height: spec.to.height,
+              opacity: 1,
+              rotate: dealFlight ? spec.delay * 3 : (spec.delay / FLY_DURATION_S) * 4,
+            };
 
         return (
           <motion.div
@@ -172,26 +223,10 @@ export function CardFlyOverlay({
               rotate: 0,
               zIndex: 120,
             }}
-            animate={{
-              left: spec.to.left,
-              top: spec.to.top,
-              width: spec.to.width,
-              height: spec.to.height,
-              opacity: 1,
-              rotate: dealFlight ? spec.delay * 3 : (spec.delay / FLY_DURATION_S) * 4,
-            }}
-            transition={{
-              duration,
-              delay: flyDelay,
-              ease:
-                stockDealFlight && stockDealDurationS != null
-                  ? "linear"
-                  : dealFlight
-                    ? [0.22, 0.72, 0.15, 1]
-                    : CARD_STACK_LAND_EASE,
-            }}
+            animate={positionAnimate}
+            transition={positionTransition}
           >
-            {flipFirst ? (
+            {flipAtSource ? (
               <motion.div
                 className="h-full w-full"
                 style={{ transformStyle: "preserve-3d" }}
