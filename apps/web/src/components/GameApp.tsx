@@ -107,8 +107,7 @@ function initSlotMaps(state: GameState): Record<number, SlotMap> {
 export function GameApp() {
   const router = useRouter();
   const [screen, setScreen] = useState<"lobby" | "game">("lobby");
-  const [playerCount, setPlayerCount] = useState(2);
-  const [cpuCount, setCpuCount] = useState(1);
+  const [playerCount, setPlayerCount] = useState(4);
   const [difficulty, setDifficulty] = useState<CpuDifficulty>("medium");
   const [state, setState] = useState<GameState | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -144,6 +143,8 @@ export function GameApp() {
   const [stockCounts, setStockCounts] = useState<Record<number, number>>({});
   const [handFaceDown, setHandFaceDown] = useState(false);
   const humanSeat = 0;
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const OPENING_ANIM_PHASES: DeckPhase[] = [
     "shuffle",
@@ -498,15 +499,13 @@ export function GameApp() {
   const startGame = () => {
     setStartError(null);
     try {
-      const cpus = Math.max(playerCount > 1 ? 1 : 0, cpuCount);
       const setups: PlayerSetup[] = [];
       setups.push({ name: "You", isCpu: false });
       for (let i = 1; i < playerCount; i++) {
-        const isCpu = i <= cpus;
         setups.push({
-          name: isCpu ? CPU_NAMES[i - 1] : `Player ${i + 1}`,
-          isCpu,
-          difficulty: isCpu ? difficulty : undefined,
+          name: CPU_NAMES[(i - 1) % CPU_NAMES.length],
+          isCpu: true,
+          difficulty,
         });
       }
       const g = normalizeGameState(createMatch(setups, undefined, Date.now()));
@@ -640,6 +639,11 @@ export function GameApp() {
       afterCommit?: () => void,
     ) => {
       if (!state) return;
+      if (flyCommitRef.current) {
+        const pending = flyCommitRef.current;
+        flyCommitRef.current = null;
+        pending();
+      }
       const done = () => {
         commit();
         afterCommit?.();
@@ -703,55 +707,66 @@ export function GameApp() {
     [state, deckPhase, patchState, enqueuePlaySummary, playAnimating, runWithFly, pushTurn],
   );
 
+  const runCpuTurn = useCallback(() => {
+    const s = stateRef.current;
+    if (!s || s.phase !== "playing" || deckPhase !== null) return;
+    const seat = s.currentSeat;
+    const p = s.players[seat];
+    if (!p?.isCpu) return;
+    const playerName = p.name;
+
+    if (isAwaitingHigherConfirm(s)) {
+      const next = resolveHigherConfirm(s, seat);
+      detectHigherConfirmSfx(s, next);
+      pushTurn(playerName, turnLogConfirmAction(s, next));
+      patchState(next);
+      setSelected([]);
+      return;
+    }
+
+    const moves = legalMoves(s, seat);
+    const move = chooseMove(s, seat, p.difficulty ?? "medium") ?? moves[0];
+    if (!move) return;
+
+    const cards = move.cardIds
+      .map((id) => findInPlayerZones(s.players[seat], id))
+      .filter((c): c is Card => !!c);
+
+    const commit = () => {
+      const next = applyMove(s, move);
+      detectSfx(s, next, move);
+      patchState(next);
+    };
+
+    runWithFly(seat, move.cardIds, cards, commit, () => {
+      const next = applyMove(s, move);
+      const action = turnLogMoveAction(s, next, move);
+      pushTurn(playerName, action);
+      enqueuePlaySummary(
+        playerName,
+        action,
+        summarizeStackPlay(playerName, s, next, move),
+      );
+    });
+  }, [deckPhase, patchState, enqueuePlaySummary, runWithFly, pushTurn]);
+
   useEffect(() => {
-    if (!state || state.phase !== "playing" || deckPhase !== null) return;
-    const p = state.players[state.currentSeat];
-    if (!p.isCpu) return;
+    const s = state;
+    if (!s || s.phase !== "playing" || deckPhase !== null) return;
+    if (!s.players[s.currentSeat]?.isCpu) return;
 
     const delay = reducedMotion ? CPU_TURN_DELAY_REDUCED_MS : CPU_TURN_DELAY_MS;
-    const t = setTimeout(() => {
-      const seat = state.currentSeat;
-      const playerName = state.players[seat].name;
-
-      if (isAwaitingHigherConfirm(state)) {
-        const commit = () => {
-          const next = resolveHigherConfirm(state, seat);
-          detectHigherConfirmSfx(state, next);
-          pushTurn(playerName, turnLogConfirmAction(state, next));
-          patchState(next);
-          setSelected([]);
-        };
-        commit();
-        return;
-      }
-
-      const moves = legalMoves(state, seat);
-      const move = chooseMove(state, seat, p.difficulty ?? "medium") ?? moves[0];
-      if (!move) return;
-
-      const cards = move.cardIds
-        .map((id) => findInPlayerZones(state.players[seat], id))
-        .filter((c): c is Card => !!c);
-
-      const commit = () => {
-        const next = applyMove(state, move);
-        detectSfx(state, next, move);
-        patchState(next);
-      };
-
-      runWithFly(seat, move.cardIds, cards, commit, () => {
-        const next = applyMove(state, move);
-        const action = turnLogMoveAction(state, next, move);
-        pushTurn(playerName, action);
-        enqueuePlaySummary(
-          playerName,
-          action,
-          summarizeStackPlay(playerName, state, next, move),
-        );
-      });
-    }, delay);
+    const t = setTimeout(runCpuTurn, delay);
     return () => clearTimeout(t);
-  }, [state, deckPhase, reducedMotion, patchState, enqueuePlaySummary, runWithFly, pushTurn]);
+  }, [
+    state?.version,
+    state?.currentSeat,
+    state?.phase,
+    state?.pendingHigherConfirm,
+    deckPhase,
+    reducedMotion,
+    runCpuTurn,
+  ]);
 
   function detectSfx(prev: GameState, next: GameState, move: Move) {
     const seat = prev.currentSeat;
@@ -830,32 +845,21 @@ export function GameApp() {
           </Link>
           <h1 className="font-serif text-4xl text-amber-100 tracking-tight mb-1">{BRAND_NAME}</h1>
           <p className="text-amber-200/70 text-sm mb-8">Play under the top card — or pick up the pile.</p>
-          <label className="block text-amber-100/80 text-sm mb-2">Players ({playerCount})</label>
+          <label className="block text-amber-100/80 text-sm mb-2">
+            Table size ({playerCount} players)
+          </label>
           <input
             type="range"
             min={2}
             max={4}
             value={playerCount}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              setPlayerCount(n);
-              if (cpuCount > n - 1) setCpuCount(n - 1);
-              if (n > 1 && cpuCount < 1) setCpuCount(1);
-            }}
-            className="w-full mb-6 accent-amber-400"
+            onChange={(e) => setPlayerCount(Number(e.target.value))}
+            className="w-full mb-2 accent-amber-400"
           />
-          <label className="block text-amber-100/80 text-sm mb-2">CPU opponents ({cpuCount})</label>
-          <p className="text-amber-200/50 text-xs mb-2">
-            Use at least 1 CPU for solo play (0 CPUs only works with pass-and-play, not in this demo).
+          <p className="text-amber-200/50 text-xs mb-6">
+            You plus {playerCount - 1} CPU opponent{playerCount > 2 ? "s" : ""} — all seats are
+            played by the computer in solo mode.
           </p>
-          <input
-            type="range"
-            min={playerCount > 1 ? 1 : 0}
-            max={playerCount - 1}
-            value={cpuCount}
-            onChange={(e) => setCpuCount(Number(e.target.value))}
-            className="w-full mb-6 accent-amber-400"
-          />
           <label className="block text-amber-100/80 text-sm mb-2">CPU difficulty</label>
           <select
             value={difficulty}
