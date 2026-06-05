@@ -3,6 +3,7 @@
 import Image from "next/image";
 import type { Card } from "@underplay/engine";
 import { deckBackSrc, deckFaceSrc } from "@/lib/cardArt";
+import { CARD_IMAGE_CLASS, CARD_SLOT_BG } from "@/lib/cardImageStyle";
 import type { CardDeckId } from "@/lib/cardDecks";
 
 interface Props {
@@ -24,8 +25,8 @@ export function DeckCardImage({
   const src = showBack ? deckBackSrc(deckId) : deckFaceSrc(deckId, card!);
 
   return (
-    <div className={`relative ${className} overflow-hidden bg-[#f2ebe0]`}>
-      <Image src={src} alt="" fill className="object-cover" sizes={sizes} />
+    <div className={`relative ${className} overflow-hidden ${CARD_SLOT_BG}`}>
+      <Image src={src} alt="" fill className={CARD_IMAGE_CLASS} sizes={sizes} />
     </div>
   );
 }

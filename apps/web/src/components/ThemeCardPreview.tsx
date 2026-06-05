@@ -3,6 +3,7 @@
 import Image from "next/image";
 import type { Card } from "@underplay/engine";
 import { deckBackSrc, deckFaceSrc, getCardDeck, type CardDeckId } from "@/lib/cardDecks";
+import { CARD_IMAGE_CLASS, CARD_SLOT_BG } from "@/lib/cardImageStyle";
 
 const SAMPLE_CLEAR: Card = { id: "preview-clear", kind: "clear" };
 const SAMPLE_SKIP: Card = { id: "preview-skip", kind: "skip" };
@@ -22,7 +23,7 @@ export function DeckCardMini({ deckId, className = "" }: Props) {
     <div
       className={`relative w-11 h-[3.9rem] rounded-[0.3rem] overflow-hidden shadow-md bg-white ${className}`}
     >
-      <Image src={deckBackSrc(deckId)} alt="" fill className="object-cover" sizes="44px" />
+      <Image src={deckBackSrc(deckId)} alt="" fill className={CARD_IMAGE_CLASS} sizes="44px" />
     </div>
   );
 }
@@ -40,7 +41,7 @@ export function DeckCardStrip({ deckId, className = "" }: Props) {
       ].map((item, i) => (
         <div
           key={i}
-          className="relative w-[3.25rem] h-[4.75rem] rounded-[0.3rem] overflow-hidden shadow-lg shrink-0 bg-[#f2ebe0]"
+          className={`relative w-[3.25rem] h-[4.75rem] rounded-[0.3rem] overflow-hidden shadow-lg shrink-0 ${CARD_SLOT_BG}`}
         >
           <Image
             src={
@@ -48,7 +49,7 @@ export function DeckCardStrip({ deckId, className = "" }: Props) {
             }
             alt=""
             fill
-            className="object-cover"
+            className={CARD_IMAGE_CLASS}
             sizes="52px"
           />
         </div>

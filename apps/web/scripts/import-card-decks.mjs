@@ -9,6 +9,7 @@ import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
+import { buildClassicSpecialFaces } from "./classic-special-faces.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = path.join(__dirname, "..");
@@ -71,16 +72,13 @@ async function buildVectorDeck(deckId, suitKey) {
   const backSvg = await fetchSvg("Joker1.svg");
   await writeJpeg(path.join(dir, "back.jpg"), backSvg, { density: 300 });
 
-  await copySpecialFaces(deckId);
+  await buildSpecialFaces(deckId);
   console.log(`  ${deckId} (vector ${suitKey})`);
 }
 
-async function copySpecialFaces(deckId) {
-  const src = path.join(PUBLIC, "bicycle", "faces");
-  const dest = path.join(PUBLIC, deckId, "faces");
-  for (const name of ["clear.jpg", "skip.jpg"]) {
-    await fs.copyFile(path.join(src, name), path.join(dest, name));
-  }
+async function buildSpecialFaces(deckId) {
+  const facesDir = path.join(PUBLIC, deckId, "faces");
+  await buildClassicSpecialFaces(facesDir, deckId);
 }
 
 async function buildKenneyDeck() {
@@ -101,7 +99,7 @@ async function buildKenneyDeck() {
   }
 
   await writeJpeg(path.join(dir, "back.jpg"), path.join(KENNEY_LARGE, "card_back.png"));
-  await copySpecialFaces(deckId);
+  await buildSpecialFaces(deckId);
   console.log(`  ${deckId} (Kenney CC0)`);
 }
 

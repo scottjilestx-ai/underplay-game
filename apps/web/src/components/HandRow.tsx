@@ -38,7 +38,7 @@ export function HandRow({
     <motion.div
       layout={layoutSort && !reducedMotion}
       data-deal-target={`seat-${seat}-hand-row`}
-      className="flex gap-2 justify-start sm:justify-center px-3 py-2 min-h-[7rem] w-full overflow-x-auto overflow-y-visible"
+      className="flex gap-2 justify-center px-3 py-2 min-h-[7rem] w-full overflow-x-auto overflow-y-visible"
     >
       {cards.map((c, i) => (
         <motion.div

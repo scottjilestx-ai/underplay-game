@@ -130,7 +130,7 @@ function initSlotMaps(state: GameState): Record<number, SlotMap> {
 
 export function GameApp() {
   const router = useRouter();
-  const { themeId } = useTheme();
+  const { themeId, deck } = useTheme();
   const [screen, setScreen] = useState<"lobby" | "game">("lobby");
   const [state, setState] = useState<GameState | null>(null);
   const gameConfigRef = useRef<GameSetupConfig | null>(null);
@@ -1099,7 +1099,7 @@ export function GameApp() {
         <div className="min-w-0 flex-1 flex items-center gap-2 sm:gap-3">
           <UnderPlayLogo themeId={themeId} size="header" className="shrink-0" />
           <span className="text-theme-muted text-xs sm:text-sm truncate">
-            Round {state.roundNumber} · Top {T ?? "—"}
+            Round {state.roundNumber} · Top {T ?? "—"} · {deck.shortName}
           </span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">

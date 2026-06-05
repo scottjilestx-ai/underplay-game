@@ -8,7 +8,7 @@
  * 3. After atlas cell extract, run tightBounds + cover resize so JPEGs fill the frame.
  * 4. Pick a centered atlas cell for the back — column 0 is often off-center; scan
  *    columns and use the most balanced one (see findBestCenteredColumn).
- * 5. UI uses object-cover on 360×520 assets; fix margins in the bake, not with CSS.
+ * 5. Bake edge-to-edge first; UI also uses CARD_IMAGE_CLASS (scale bleed) in cardImageStyle.ts.
  * 6. Verify with a quick margin audit before commit (see auditDeckMargins).
  */
 import sharp from "sharp";
