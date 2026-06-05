@@ -23,7 +23,7 @@ import {
   type Move,
   type PlayerSetup,
 } from "@underplay/engine";
-import { loadAudioPrefs, playSfx, setMuted, setVolume } from "@/lib/audio";
+import { loadAudioPrefs, playSfx, setMuted, setVolume, unlockAudio } from "@/lib/audio";
 import { useTheme } from "@/context/ThemeProvider";
 import { UnderPlayLogo } from "./UnderPlayLogo";
 import { buildSlotMap, opponentTableWidthRem, type SlotMap } from "@/lib/cardSlots";
@@ -219,6 +219,9 @@ export function GameApp() {
     setMutedState((prev) => {
       const next = !prev;
       setMuted(next);
+      if (!next) {
+        void unlockAudio().then(() => playSfx("tap"));
+      }
       return next;
     });
   }, []);
@@ -1093,6 +1096,7 @@ export function GameApp() {
               const v = Number(e.target.value);
               setVol(v);
               setVolume(v);
+              if (v > 0 && !muted) void unlockAudio().then(() => playSfx("tap"));
             }}
             className="w-20 accent-amber-400"
             disabled={muted}

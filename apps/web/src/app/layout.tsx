@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BRAND_NAME } from "@/lib/brand";
 import { ThemeProvider } from "@/context/ThemeProvider";
+import { AudioUnlock } from "@/components/AudioUnlock";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,7 +17,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased h-full overflow-hidden">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <AudioUnlock />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
