@@ -31,9 +31,7 @@ export function StackPile({ stack, reducedMotion }: Props) {
             const offset = i - (visible.length - 1);
             return (
               <motion.div
-                key={c.id}
-                layout
-                layoutId={`card-${c.id}`}
+                key={`stack-${c.id}`}
                 className="absolute"
                 initial={reducedMotion ? false : { opacity: 0, y: 28, scale: 0.9 }}
                 animate={{

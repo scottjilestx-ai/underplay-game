@@ -51,7 +51,6 @@ export function PlayerTableSlots({
                 <PlayingCard
                   faceDown
                   small={compact}
-                  layoutId={`card-${down.id}`}
                   reducedMotion={reducedMotion}
                   onClick={
                     interactive && uncovered ? () => onSelect(down.id) : undefined
@@ -65,7 +64,6 @@ export function PlayerTableSlots({
                 <PlayingCard
                   card={up}
                   small={compact}
-                  layoutId={`card-${up.id}`}
                   reducedMotion={reducedMotion}
                   onClick={interactive ? () => onSelect(up.id) : undefined}
                   selected={selected.includes(up.id)}

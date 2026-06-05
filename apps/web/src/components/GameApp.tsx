@@ -19,8 +19,8 @@ import { playSfx, setMuted, setVolume } from "@/lib/audio";
 import { buildSlotMap, type SlotMap } from "@/lib/cardSlots";
 import { sortHand } from "@/lib/sortCards";
 import { DeckAnimation } from "./DeckAnimation";
+import { HandRow } from "./HandRow";
 import { PlayerTableSlots } from "./PlayerTableSlots";
-import { PlayingCard } from "./PlayingCard";
 import { StackPile } from "./StackPile";
 
 const CPU_NAMES = ["Alex", "Jordan", "Riley", "Casey"];
@@ -262,7 +262,7 @@ export function GameApp() {
   const dealing = deckPhase !== null;
 
   return (
-    <div className="min-h-screen table-bg flex flex-col overflow-x-hidden">
+    <div className="h-[100dvh] table-bg flex flex-col overflow-hidden">
       <header className="flex items-center justify-between px-4 py-2 border-b border-amber-900/30 bg-black/30">
         <div>
           <span className="font-serif text-amber-100 text-lg">Underplay</span>
@@ -325,10 +325,10 @@ export function GameApp() {
         )}
       </AnimatePresence>
 
-      <div className="flex-1 relative flex flex-col min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 grid grid-rows-[auto_minmax(7rem,1fr)_minmax(240px,38dvh)] relative">
         <DeckAnimation phase={deckPhase} reducedMotion={reducedMotion} />
 
-        <div className="shrink-0 flex justify-center gap-6 py-2 px-4 flex-wrap">
+        <div className="flex justify-center gap-4 py-2 px-2 flex-wrap overflow-y-auto max-h-[28dvh]">
           {state.players
             .filter((p) => p.seat !== humanSeat)
             .map((p) => (
@@ -344,10 +344,10 @@ export function GameApp() {
             ))}
         </div>
 
-        <div className="shrink-0 flex flex-col items-center justify-center py-3 min-h-[8.5rem]">
-          <p className="text-amber-200/50 text-xs mb-2 uppercase tracking-widest">Stack</p>
+        <div className="flex flex-col items-center justify-center py-2 min-h-0 overflow-hidden">
+          <p className="text-amber-200/50 text-xs mb-1 uppercase tracking-widest shrink-0">Stack</p>
           <StackPile stack={state.stack} reducedMotion={reducedMotion} />
-          <p className="mt-3 text-amber-100/60 text-sm min-h-[1.25rem] max-w-md text-center px-4">
+          <p className="mt-2 text-amber-100/60 text-sm min-h-[1.25rem] max-w-md text-center px-4 shrink-0">
             {lastEvent}
           </p>
         </div>
@@ -371,8 +371,8 @@ export function GameApp() {
           />
         )}
 
-        <div className="shrink-0 mt-auto pt-2 border-t border-amber-900/30 bg-black/15 backdrop-blur-sm">
-          <p className="text-center text-amber-200/40 text-[10px] uppercase tracking-widest mb-2 pt-2">
+        <div className="z-20 flex flex-col border-t border-amber-900/40 bg-gradient-to-t from-[#081810] via-[#0a1f17]/95 to-transparent min-h-0 overflow-y-auto">
+          <p className="text-center text-amber-200/40 text-[10px] uppercase tracking-widest pt-2 shrink-0">
             Your table
           </p>
           <PlayerTableSlots
@@ -386,35 +386,18 @@ export function GameApp() {
             onSelect={(id) => toggleSelect(id)}
           />
 
-          <p className="text-center text-amber-200/40 text-[10px] uppercase tracking-widest mt-4 mb-2">
+          <p className="text-center text-amber-200/50 text-[10px] uppercase tracking-widest mt-2 mb-0 shrink-0">
             Your hand ({sortedHand.length})
           </p>
-          <div className="flex justify-center gap-1 flex-wrap px-2 pb-2 min-h-[6.75rem]">
-            {sortedHand.length === 0 ? (
-              <p className="text-amber-200/50 text-sm italic py-4">No cards in hand</p>
-            ) : (
-              sortedHand.map((c, i) => (
-                <motion.div
-                  key={c.id}
-                  layout
-                  layoutId={`card-${c.id}`}
-                  initial={dealing && !reducedMotion ? { opacity: 0, y: 24 } : false}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: dealing ? 0.35 + i * 0.03 : 0, duration: 0.25 }}
-                >
-                  <PlayingCard
-                    card={c}
-                    selected={selected.includes(c.id)}
-                    onClick={myTurn && !dealing ? () => toggleSelect(c.id) : undefined}
-                    reducedMotion={reducedMotion}
-                    layoutId={`card-${c.id}`}
-                  />
-                </motion.div>
-              ))
-            )}
-          </div>
+          <HandRow
+            cards={sortedHand}
+            selected={selected}
+            interactive={myTurn && !dealing}
+            reducedMotion={reducedMotion}
+            onSelect={(id) => toggleSelect(id)}
+          />
 
-          <div className="flex justify-center gap-3 pb-5 pt-1 flex-wrap items-center">
+          <div className="flex justify-center gap-3 py-3 shrink-0 flex-wrap items-center">
             {isSkipSelection && (
               <div className="flex gap-2 items-center w-full justify-center mb-1">
                 <span className="text-amber-200/70 text-sm">Skip target:</span>

@@ -11,7 +11,6 @@ interface Props {
   selected?: boolean;
   small?: boolean;
   onClick?: () => void;
-  layoutId?: string;
   reducedMotion?: boolean;
 }
 
@@ -21,7 +20,6 @@ export function PlayingCard({
   selected,
   small,
   onClick,
-  layoutId,
   reducedMotion,
 }: Props) {
   const w = small ? "w-14 h-20" : "w-[4.5rem] h-[6.5rem]";
@@ -31,8 +29,6 @@ export function PlayingCard({
   return (
     <motion.button
       type="button"
-      layout={layoutId ? true : undefined}
-      layoutId={layoutId}
       onClick={onClick}
       disabled={!onClick}
       whileHover={onClick && !reducedMotion ? { y: -8, scale: 1.03 } : undefined}
