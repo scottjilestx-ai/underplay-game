@@ -184,7 +184,7 @@ export function GameApp() {
     return (
       <div className="min-h-screen lobby-bg flex items-center justify-center p-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full rounded-2xl bg-black/40 backdrop-blur-md border border-amber-500/20 p-8 shadow-2xl"
         >
@@ -234,7 +234,25 @@ export function GameApp() {
     );
   }
 
-  if (!state) return null;
+  if (!state) {
+    return (
+      <div className="min-h-screen table-bg flex items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          <p className="text-amber-100 mb-4">Game session was lost.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setScreen("lobby");
+              setState(null);
+            }}
+            className="px-6 py-2 rounded-xl bg-amber-500 text-black font-semibold"
+          >
+            Back to lobby
+          </button>
+        </div>
+      </div>
+    );
+  }
   const me = state.players[humanSeat];
   const T = topValue(state.stack);
   const myTurn = state.currentSeat === humanSeat && state.phase === "playing";
