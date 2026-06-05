@@ -13,7 +13,7 @@ export function ThemeSelector({ compact = false, className = "" }: Props) {
   const { themeId, setThemeId } = useTheme();
 
   return (
-    <div className={className}>
+    <div className={`${compact ? "inline-flex" : "block"} ${className}`}>
       {!compact && (
         <p className="text-[10px] uppercase tracking-widest text-theme-muted mb-2">
           Game theme

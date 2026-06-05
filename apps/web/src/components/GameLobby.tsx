@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { CpuDifficulty } from "@underplay/engine";
 import { useTheme } from "@/context/ThemeProvider";
-import { UnderPlayLogo } from "./UnderPlayLogo";
-import { ThemeSelector } from "./ThemeSelector";
+import { LobbyChrome } from "./LobbyChrome";
+import { ScrollPage } from "./ScrollPage";
 import {
   defaultOpponents,
   loadStoredDisplayName,
@@ -27,7 +27,9 @@ interface Props {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">{children}</p>
+    <p className="text-[10px] uppercase tracking-widest text-theme-muted mb-2">
+      {children}
+    </p>
   );
 }
 
@@ -37,25 +39,22 @@ function Pill<T extends string | number>({
   onSelect,
   children,
   className = "",
-  solidWhenSelected = false,
 }: {
   value: T;
   selected: boolean;
   onSelect: (v: T) => void;
   children: React.ReactNode;
   className?: string;
-  solidWhenSelected?: boolean;
 }) {
+  const { theme } = useTheme();
   return (
     <button
       type="button"
       onClick={() => onSelect(value)}
       className={`min-w-[2.75rem] px-3 py-2 rounded-lg text-sm font-semibold transition border ${
         selected
-          ? solidWhenSelected
-            ? "border-emerald-400 bg-emerald-500 text-black"
-            : "border-emerald-400 bg-emerald-500/20 text-emerald-100"
-          : "border-zinc-700 bg-zinc-900/80 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+          ? `border-[var(--theme-accent)] bg-gradient-to-r ${theme.buttonGradient} text-black shadow-[0_0_16px_var(--theme-glow)]`
+          : "border-theme-border bg-black/35 text-theme-muted hover:border-[var(--theme-accent)]/40 hover:text-theme-ink"
       } ${className}`}
     >
       {children}
@@ -70,7 +69,7 @@ const CPU_DIFFICULTY_OPTIONS: { id: CpuDifficulty; label: string }[] = [
 ];
 
 export function GameLobby({ startError, onStart }: Props) {
-  const { themeId } = useTheme();
+  const { theme } = useTheme();
   const [mode, setMode] = useState<GameMode>("cpu");
   const [playerName, setPlayerName] = useState("You");
   const [opponentCount, setOpponentCount] = useState(3);
@@ -78,6 +77,7 @@ export function GameLobby({ startError, onStart }: Props) {
   const [playToScore, setPlayToScore] = useState<PlayToScore>(250);
   const [stackDisplay, setStackDisplay] = useState<StackDisplayMode>("full");
   const [firstPlayer, setFirstPlayer] = useState<FirstPlayerChoice>("random");
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     setPlayerName(loadStoredDisplayName());
@@ -133,38 +133,17 @@ export function GameLobby({ startError, onStart }: Props) {
   const stackHint = STACK_DISPLAY_OPTIONS.find((o) => o.id === stackDisplay)?.hint;
 
   return (
-    <div className="min-h-[100dvh] lobby-bg flex flex-col items-center p-6 overflow-y-auto">
-      <div className="w-full max-w-lg mb-5 shrink-0">
-        <div className="max-w-xs mx-auto mb-3">
-          <UnderPlayLogo variant={themeId} size="card" priority />
-        </div>
-        <ThemeSelector className="flex justify-center" compact />
-        <p className="text-theme-muted text-sm mt-3 text-center">
-          Play to the lowest score. Don&apos;t get stuck holding the pile.
-        </p>
-      </div>
+    <ScrollPage>
+      <div className="max-w-lg mx-auto px-4 pt-4 pb-28 sm:pb-8 sm:min-h-0">
+        <LobbyChrome tagline="Play to the lowest score. Don't get stuck holding the pile." />
 
-      <div className="w-full max-w-lg rounded-2xl bg-zinc-900/90 border border-zinc-800 shadow-2xl flex flex-col max-h-[calc(100dvh-7rem)]">
-        <div className="overflow-y-auto p-6 flex-1 min-h-0">
-          <Link
-            href="/"
-            className="text-zinc-500 text-sm hover:text-zinc-300 transition mb-4 inline-block"
-          >
-            ← Home
-          </Link>
-
-          <h2 className="text-xl font-bold text-white mb-0.5">New Game</h2>
-          <p className="text-zinc-500 text-sm mb-6">Set up a local match and deal in.</p>
+        <div className="rounded-2xl bg-theme-panel backdrop-blur-md border border-theme-border shadow-2xl p-5 sm:p-6">
+          <h2 className="font-serif text-2xl text-theme-ink mb-0.5">New Game</h2>
+          <p className="text-theme-muted text-sm mb-5">Set up a local match and deal in.</p>
 
           <FieldLabel>Mode</FieldLabel>
-          <div className="flex gap-2 mb-6">
-            <Pill
-              value="cpu"
-              selected={mode === "cpu"}
-              onSelect={setMode}
-              className="flex-1"
-              solidWhenSelected
-            >
+          <div className="flex gap-2 mb-5">
+            <Pill value="cpu" selected={mode === "cpu"} onSelect={setMode} className="flex-1">
               vs CPU
             </Pill>
             <Pill
@@ -172,9 +151,8 @@ export function GameLobby({ startError, onStart }: Props) {
               selected={mode === "hotseat"}
               onSelect={setMode}
               className="flex-1 text-xs sm:text-sm"
-              solidWhenSelected
             >
-              Hotseat (pass &amp; play)
+              Hotseat
             </Pill>
           </div>
 
@@ -185,42 +163,36 @@ export function GameLobby({ startError, onStart }: Props) {
             onChange={(e) => setPlayerName(e.target.value)}
             maxLength={24}
             placeholder="Display name"
-            className="w-full mb-6 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-white placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+            className="w-full mb-5 rounded-lg border border-theme-border bg-black/40 px-3 py-2.5 text-theme-ink placeholder:text-theme-muted/50 focus:border-[var(--theme-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--theme-accent)]"
           />
 
           <FieldLabel>Opponents</FieldLabel>
           <div className="flex gap-2 mb-4">
             {([1, 2, 3] as const).map((n) => (
-              <Pill
-                key={n}
-                value={n}
-                selected={opponentCount === n}
-                onSelect={setCount}
-                solidWhenSelected
-              >
+              <Pill key={n} value={n} selected={opponentCount === n} onSelect={setCount}>
                 {n}
               </Pill>
             ))}
           </div>
 
           {mode === "cpu" && opponentCount > 0 && (
-            <p className="text-zinc-600 text-xs mb-2 -mt-2">
-              Set difficulty per CPU — each opponent plays at its own level.
+            <p className="text-theme-muted text-xs mb-2 -mt-1">
+              Difficulty per CPU — each opponent plays at its own level.
             </p>
           )}
 
-          <div className="space-y-2.5 mb-6">
+          <div className="space-y-2.5 mb-5">
             {opponents.slice(0, opponentCount).map((opp, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5"
+                className="flex items-center gap-2 rounded-xl border border-theme-border bg-black/35 px-3 py-2.5"
               >
                 <input
                   type="text"
                   value={opp.name}
                   onChange={(e) => updateOpponent(i, { name: e.target.value })}
                   maxLength={20}
-                  className="min-w-0 flex-1 bg-transparent text-white font-medium text-sm focus:outline-none"
+                  className="min-w-0 flex-1 bg-transparent text-theme-ink font-medium text-sm focus:outline-none"
                   aria-label={`Opponent ${i + 1} name`}
                 />
                 {mode === "cpu" && (
@@ -237,8 +209,8 @@ export function GameLobby({ startError, onStart }: Props) {
                         aria-pressed={opp.difficulty === id}
                         className={`min-w-[2.25rem] px-2 py-1 rounded-md text-[11px] font-semibold transition ${
                           opp.difficulty === id
-                            ? "bg-emerald-500 text-black"
-                            : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"
+                            ? `bg-gradient-to-r ${theme.buttonGradient} text-black`
+                            : "bg-black/50 text-theme-muted hover:text-theme-ink"
                         }`}
                       >
                         {label}
@@ -250,93 +222,127 @@ export function GameLobby({ startError, onStart }: Props) {
             ))}
           </div>
 
-          <FieldLabel>Who plays first</FieldLabel>
-          <div className="flex flex-wrap gap-2 mb-6">
-            <Pill
-              value={"random" as const}
-              selected={firstPlayer === "random"}
-              onSelect={setFirstPlayer}
-              solidWhenSelected
-            >
-              Random
-            </Pill>
-            <Pill
-              value={0 as const}
-              selected={firstPlayer === 0}
-              onSelect={setFirstPlayer}
-              solidWhenSelected
-            >
-              {playerName.trim() || "You"}
-            </Pill>
-            {opponents.slice(0, opponentCount).map((opp, i) => (
-              <Pill
-                key={i}
-                value={(i + 1) as number}
-                selected={firstPlayer === i + 1}
-                onSelect={setFirstPlayer}
-                solidWhenSelected
-              >
-                {opp.name.trim() || `Player ${i + 2}`}
-              </Pill>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className="flex w-full items-center justify-between text-sm text-theme-muted hover:text-theme-ink transition mb-3 py-1"
+            aria-expanded={showAdvanced}
+          >
+            <span>Advanced options</span>
+            <span aria-hidden className="text-theme-muted">
+              {showAdvanced ? "▾" : "▸"}
+            </span>
+          </button>
 
-          <FieldLabel>Stack on table</FieldLabel>
-          <div className="flex flex-wrap gap-2 mb-1">
-            {STACK_DISPLAY_OPTIONS.map((opt) => (
-              <Pill
-                key={opt.id}
-                value={opt.id}
-                selected={stackDisplay === opt.id}
-                onSelect={setStackDisplay}
-                solidWhenSelected
-              >
-                {opt.shortLabel}
-              </Pill>
-            ))}
-          </div>
-          {stackHint && (
-            <p className="text-zinc-600 text-xs mb-6 leading-relaxed">{stackHint}</p>
+          {showAdvanced && (
+            <div className="mb-2 border-t border-theme-border pt-4">
+              <FieldLabel>Who plays first</FieldLabel>
+              <div className="flex flex-wrap gap-2 mb-5">
+                <Pill
+                  value={"random" as const}
+                  selected={firstPlayer === "random"}
+                  onSelect={setFirstPlayer}
+                >
+                  Random
+                </Pill>
+                <Pill
+                  value={0 as const}
+                  selected={firstPlayer === 0}
+                  onSelect={setFirstPlayer}
+                >
+                  {playerName.trim() || "You"}
+                </Pill>
+                {opponents.slice(0, opponentCount).map((opp, i) => (
+                  <Pill
+                    key={i}
+                    value={(i + 1) as number}
+                    selected={firstPlayer === i + 1}
+                    onSelect={setFirstPlayer}
+                  >
+                    {opp.name.trim() || `Player ${i + 2}`}
+                  </Pill>
+                ))}
+              </div>
+
+              <FieldLabel>Stack on table</FieldLabel>
+              <div className="flex flex-wrap gap-2 mb-1">
+                {STACK_DISPLAY_OPTIONS.map((opt) => (
+                  <Pill
+                    key={opt.id}
+                    value={opt.id}
+                    selected={stackDisplay === opt.id}
+                    onSelect={setStackDisplay}
+                  >
+                    {opt.shortLabel}
+                  </Pill>
+                ))}
+              </div>
+              {stackHint && (
+                <p className="text-theme-muted text-xs mb-5 leading-relaxed">{stackHint}</p>
+              )}
+
+              <FieldLabel>Play to (match ends at this total)</FieldLabel>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {PLAY_TO_SCORE_OPTIONS.map((score) => (
+                  <Pill
+                    key={score}
+                    value={score}
+                    selected={playToScore === score}
+                    onSelect={setPlayToScore}
+                  >
+                    {score}
+                  </Pill>
+                ))}
+              </div>
+            </div>
           )}
 
-          <FieldLabel>Play to (match ends when a total hits this)</FieldLabel>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {PLAY_TO_SCORE_OPTIONS.map((score) => (
-              <Pill
-                key={score}
-                value={score}
-                selected={playToScore === score}
-                onSelect={setPlayToScore}
-                solidWhenSelected
-              >
-                {score}
-              </Pill>
-            ))}
-          </div>
-
           {startError && (
-            <p className="mt-4 text-rose-300 text-sm rounded-lg bg-rose-950/50 border border-rose-500/30 px-3 py-2">
+            <p className="mt-4 text-rose-200 text-sm rounded-lg bg-rose-950/50 border border-rose-500/30 px-3 py-2">
               {startError}
             </p>
           )}
-        </div>
 
-        <div className="shrink-0 p-6 pt-3 border-t border-zinc-800 bg-zinc-900/95 rounded-b-2xl">
           <button
             type="button"
             onClick={handleStart}
-            className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold transition"
+            className={`hidden sm:block w-full mt-6 py-3.5 rounded-xl bg-gradient-to-r ${theme.buttonGradient} text-black font-bold hover:opacity-90 transition`}
           >
             Deal cards
           </button>
 
-          <p className="mt-4 text-center text-zinc-600 text-xs">
-            <Link href="/online" className="text-emerald-500/90 hover:text-emerald-400">
+          <p className="hidden sm:block mt-4 text-center text-theme-muted text-xs">
+            <Link
+              href="/online"
+              className="hover:text-theme-ink transition"
+              style={{ color: "var(--theme-accent)" }}
+            >
               Play online with friends
             </Link>
           </p>
         </div>
       </div>
-    </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-10 p-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-[var(--lobby-gradient-mid)] via-[var(--lobby-gradient-mid)]/95 to-transparent sm:hidden pointer-events-none">
+        <div className="max-w-lg mx-auto pointer-events-auto">
+          <button
+            type="button"
+            onClick={handleStart}
+            className={`w-full py-3.5 rounded-xl bg-gradient-to-r ${theme.buttonGradient} text-black font-bold shadow-lg hover:opacity-90 transition`}
+          >
+            Deal cards
+          </button>
+          <p className="mt-2 text-center text-theme-muted text-xs">
+            <Link
+              href="/online"
+              className="hover:text-theme-ink transition"
+              style={{ color: "var(--theme-accent)" }}
+            >
+              Play online
+            </Link>
+          </p>
+        </div>
+      </div>
+    </ScrollPage>
   );
 }

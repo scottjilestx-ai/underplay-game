@@ -25,8 +25,8 @@ interface Props {
 
 const SIZE_CLASS: Record<NonNullable<Props["size"]>, string> = {
   hero: "max-w-2xl aspect-[2.4/1]",
-  card: "aspect-[2.2/1]",
-  header: "w-[7.5rem] h-8 aspect-auto",
+  card: "aspect-[2.2/1] max-h-[4.5rem]",
+  header: "w-full aspect-[2.4/1] max-h-[3.25rem]",
 };
 
 export function UnderPlayLogo({

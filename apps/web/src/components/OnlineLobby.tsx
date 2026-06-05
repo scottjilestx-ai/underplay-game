@@ -5,8 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { loadStoredDisplayName, storeDisplayName } from "@/lib/gameSetup";
 import { useTheme } from "@/context/ThemeProvider";
-import { UnderPlayLogo } from "./UnderPlayLogo";
-import { ThemeSelector } from "./ThemeSelector";
+import { LobbyChrome } from "./LobbyChrome";
+import { ScrollPage } from "./ScrollPage";
 
 function randomRoomCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -16,14 +16,13 @@ function randomRoomCode(): string {
 }
 
 export function OnlineLobby() {
-  const { themeId } = useTheme();
+  const { theme } = useTheme();
   const [name, setName] = useState("You");
 
   useEffect(() => {
     setName(loadStoredDisplayName());
   }, []);
   const [joinCode, setJoinCode] = useState("");
-  /** Non-null when you created the room — you are already in as host. */
   const [hostedCode, setHostedCode] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -69,129 +68,150 @@ export function OnlineLobby() {
   const isHost = hostedCode != null;
 
   return (
-    <div className="min-h-[100dvh] lobby-bg flex items-center justify-center p-6 overflow-y-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full rounded-2xl bg-theme-panel backdrop-blur-md border border-theme-border p-8 shadow-2xl"
-      >
-        <Link
-          href="/"
-          className="text-theme-muted text-sm hover:text-theme-ink transition mb-4 inline-block"
-        >
-          ← Home
-        </Link>
-        <div className="max-w-[11rem] mb-4">
-          <UnderPlayLogo variant={themeId} size="card" />
-        </div>
-        <ThemeSelector compact className="mb-6" />
-        <h1 className="font-serif text-3xl text-theme-ink tracking-tight mb-1">
-          Play online
-        </h1>
-        <p className="text-amber-200/65 text-sm mb-6">
-          {isHost
-            ? "You are hosting — friends join with your code."
-            : "Create a room and share the code, or join one you were given."}
-        </p>
-
-        <label className="block text-amber-100/80 text-sm mb-2">Your name</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Display name"
-          maxLength={24}
-          className="w-full mb-6 bg-black/30 border border-amber-500/30 rounded-lg px-3 py-2.5 text-amber-50 placeholder:text-amber-200/30"
+    <ScrollPage>
+      <div className="max-w-md mx-auto px-4 pt-4 pb-8">
+        <LobbyChrome
+          tagline={
+            isHost
+              ? "Hosting — share your room code with friends."
+              : "Create a room or join with a code."
+          }
         />
 
-        {isHost ? (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-emerald-500/35 bg-emerald-950/30 px-4 py-3 text-center">
-              <p className="text-emerald-200/90 text-sm font-medium">
-                You are in the room as host
-              </p>
-              <p className="text-emerald-200/50 text-xs mt-1">
-                Waiting for friends to join with this code
-              </p>
-            </div>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl bg-theme-panel backdrop-blur-md border border-theme-border p-6 shadow-2xl"
+        >
+          <h1 className="font-serif text-2xl text-theme-ink tracking-tight mb-1">
+            Play online
+          </h1>
+          <p className="text-theme-muted text-sm mb-5">
+            {isHost
+              ? "You are hosting — friends join with your code."
+              : "Create a room and share the code, or join one you were given."}
+          </p>
 
-            <div className="rounded-xl border border-amber-400/35 bg-amber-950/40 px-4 py-4 text-center">
-              <p className="text-amber-200/60 text-xs uppercase tracking-widest mb-2">
-                Room code
-              </p>
-              <p className="font-mono text-3xl font-bold text-amber-100 tracking-[0.2em]">
-                {hostedCode}
-              </p>
-              <p className="text-amber-200/50 text-xs mt-3 leading-relaxed">
-                Live room sync requires the server layer (next step) — this
-                preview creates the room locally and puts you in automatically.
-              </p>
+          <label className="block text-theme-muted text-xs uppercase tracking-widest mb-2">
+            Your name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Display name"
+            maxLength={24}
+            className="w-full mb-5 bg-black/40 border border-theme-border rounded-lg px-3 py-2.5 text-theme-ink placeholder:text-theme-muted/50 focus:border-[var(--theme-accent)] focus:outline-none"
+          />
+
+          {isHost ? (
+            <div className="space-y-4">
+              <div
+                className="rounded-xl border px-4 py-3 text-center"
+                style={{
+                  borderColor: "color-mix(in srgb, var(--theme-accent) 35%, transparent)",
+                  background: "color-mix(in srgb, var(--theme-accent) 12%, transparent)",
+                }}
+              >
+                <p className="text-theme-ink text-sm font-medium">You are in the room as host</p>
+                <p className="text-theme-muted text-xs mt-1">
+                  Waiting for friends to join with this code
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-theme-border bg-black/35 px-4 py-4 text-center">
+                <p className="text-theme-muted text-xs uppercase tracking-widest mb-2">
+                  Room code
+                </p>
+                <p
+                  className="font-mono text-3xl font-bold tracking-[0.2em]"
+                  style={{ color: "var(--theme-accent)" }}
+                >
+                  {hostedCode}
+                </p>
+                <p className="text-theme-muted text-xs mt-3 leading-relaxed">
+                  Live room sync requires the server layer (next step) — this preview creates the
+                  room locally and puts you in automatically.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(hostedCode);
+                    setMessage("Code copied.");
+                  }}
+                  className="mt-4 text-sm underline transition hover:opacity-80"
+                  style={{ color: "var(--theme-accent)" }}
+                >
+                  Copy code
+                </button>
+              </div>
+
+              <Link
+                href="/play"
+                className={`block w-full py-3.5 rounded-xl bg-gradient-to-r ${theme.buttonGradient} text-black font-bold text-center hover:opacity-90 transition`}
+              >
+                Deal cards (local preview)
+              </Link>
+
               <button
                 type="button"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(hostedCode);
-                  setMessage("Code copied.");
-                }}
-                className="mt-4 text-sm text-amber-300 hover:text-amber-200 underline"
+                onClick={leaveRoom}
+                className="w-full py-2.5 rounded-xl border border-theme-border text-theme-muted text-sm hover:bg-black/30 hover:text-theme-ink transition"
               >
-                Copy code
+                Leave room
               </button>
             </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={createRoom}
+                className={`w-full py-3 rounded-xl bg-gradient-to-r ${theme.buttonGradient} text-black font-semibold hover:opacity-90 transition mb-5`}
+              >
+                Create a room
+              </button>
 
-            <button
-              type="button"
-              onClick={leaveRoom}
-              className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-200/70 text-sm hover:bg-black/30 transition"
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 h-px bg-theme-border" />
+                <span className="text-theme-muted text-xs uppercase">or join</span>
+                <div className="flex-1 h-px bg-theme-border" />
+              </div>
+
+              <input
+                type="text"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="Room code"
+                maxLength={6}
+                className="w-full mb-3 bg-black/40 border border-theme-border rounded-lg px-3 py-2.5 text-theme-ink font-mono tracking-widest uppercase placeholder:text-theme-muted/50 placeholder:tracking-normal placeholder:font-sans"
+              />
+              <button
+                type="button"
+                onClick={joinRoom}
+                className={`w-full py-3 rounded-xl border ${theme.buttonBorder} bg-black/30 text-theme-ink font-semibold hover:bg-black/45 transition`}
+              >
+                Join with code
+              </button>
+            </>
+          )}
+
+          {message && (
+            <p className="mt-4 text-theme-ink/90 text-sm rounded-lg bg-black/30 border border-theme-border px-3 py-2">
+              {message}
+            </p>
+          )}
+
+          <p className="mt-6 text-center text-theme-muted text-xs">
+            <Link
+              href="/play"
+              className="hover:text-theme-ink transition"
+              style={{ color: "var(--theme-accent)" }}
             >
-              Leave room
-            </button>
-          </div>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={createRoom}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 text-black font-semibold hover:from-amber-500 hover:to-amber-400 transition mb-6"
-            >
-              Create a room
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-1 h-px bg-amber-500/20" />
-              <span className="text-amber-200/40 text-xs uppercase">or join</span>
-              <div className="flex-1 h-px bg-amber-500/20" />
-            </div>
-
-            <input
-              type="text"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="Room code"
-              maxLength={6}
-              className="w-full mb-3 bg-black/30 border border-amber-500/30 rounded-lg px-3 py-2.5 text-amber-50 font-mono tracking-widest uppercase placeholder:text-amber-200/30 placeholder:tracking-normal placeholder:font-sans"
-            />
-            <button
-              type="button"
-              onClick={joinRoom}
-              className="w-full py-3 rounded-xl border border-amber-500/40 bg-black/30 text-amber-100 font-semibold hover:bg-amber-950/50 transition"
-            >
-              Join with code
-            </button>
-          </>
-        )}
-
-        {message && (
-          <p className="mt-4 text-amber-200/80 text-sm rounded-lg bg-black/30 border border-amber-500/20 px-3 py-2">
-            {message}
+              Play vs CPU instead
+            </Link>
           </p>
-        )}
-
-        <p className="mt-6 text-center text-amber-200/40 text-xs">
-          <Link href="/play" className="text-amber-300/80 hover:text-amber-200">
-            Play vs CPU instead
-          </Link>
-        </p>
-      </motion.div>
-    </div>
+        </motion.div>
+      </div>
+    </ScrollPage>
   );
 }
