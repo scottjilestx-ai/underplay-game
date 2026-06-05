@@ -30,7 +30,7 @@ export const STACK_DISPLAY_OPTIONS: {
     id: "none",
     label: "Top card only",
     shortLabel: "Top only",
-    hint: "Card edges below the top — ranks hidden under the top card.",
+    hint: "Only the top card of the stack — always shown face-up.",
   },
 ];
 
@@ -86,14 +86,12 @@ export function stackCardsForDisplay(
     return stack.slice(-n).map((card) => ({ card, faceDown: false }));
   }
 
-  const visible = stack.slice(-maxVisible);
   if (mode === "none") {
-    return visible.map((card, i) => ({
-      card,
-      faceDown: i < visible.length - 1,
-    }));
+    const top = stack[stack.length - 1];
+    return top ? [{ card: top, faceDown: false }] : [];
   }
 
+  const visible = stack.slice(-maxVisible);
   return visible.map((card) => ({ card, faceDown: false }));
 }
 
