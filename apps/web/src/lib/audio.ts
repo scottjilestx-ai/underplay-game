@@ -93,6 +93,7 @@ let muted = false;
 let volume = 0.6;
 let unlockListenersInstalled = false;
 let gesturePrimed = false;
+let resumePromise: Promise<AudioContext> | null = null;
 const winTimers: ReturnType<typeof setTimeout>[] = [];
 
 function createCtx(): AudioContext {
@@ -140,31 +141,60 @@ function playSilentPrime(ac: AudioContext) {
   gesturePrimed = true;
 }
 
-/** Call synchronously from click/tap handlers so the context unlocks under autoplay rules. */
-export function primeAudioFromGesture(): void {
-  if (typeof window === "undefined" || muted || volume <= 0) return;
+function kickResume(ac: AudioContext) {
+  if (ac.state === "suspended") void ac.resume();
+}
+
+/** Resume context; dedupes concurrent resume() calls. */
+function whenRunning(): Promise<AudioContext> {
+  const ac = getCtx();
+  if (ac.state === "running") {
+    playSilentPrime(ac);
+    return Promise.resolve(ac);
+  }
+  if (!resumePromise) {
+    kickResume(ac);
+    resumePromise = ac.resume().then(
+      () => {
+        resumePromise = null;
+        const live = getCtx();
+        playSilentPrime(live);
+        return live;
+      },
+      (err) => {
+        resumePromise = null;
+        throw err;
+      },
+    );
+  }
+  return resumePromise;
+}
+
+/** Synchronous kick — call at pointerdown before any await. */
+export function unlockAudioSync(): AudioContextState | "none" {
+  if (typeof window === "undefined") return "none";
+  if (muted || volume <= 0) return getCtx().state;
   try {
     const ac = getCtx();
-    if (ac.state === "running") {
-      playSilentPrime(ac);
-      return;
-    }
-    void ac.resume().then(() => {
-      if (!muted && volume > 0) playSilentPrime(ac);
-    });
+    kickResume(ac);
+    if (ac.state === "running") playSilentPrime(ac);
+    return ac.state;
   } catch {
-    /* ignore */
+    return "none";
   }
+}
+
+/** @deprecated Prefer unlockAudioSync + playSfxWithFeedback from click handlers. */
+export function primeAudioFromGesture(): void {
+  unlockAudioSync();
 }
 
 /** Resume AudioContext after a user gesture (required by Chrome, Safari, Edge). */
 export async function unlockAudio(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  const ac = getCtx();
-  if (ac.state === "running") return !muted && volume > 0;
+  if (typeof window === "undefined" || muted || volume <= 0) return false;
   try {
-    await ac.resume();
-    return getCtx().state === "running" && !muted && volume > 0;
+    const ac = await whenRunning();
+    return ac.state === "running";
   } catch {
     return false;
   }
@@ -176,7 +206,7 @@ export function installAudioUnlock(): void {
   unlockListenersInstalled = true;
 
   const onGesture = () => {
-    primeAudioFromGesture();
+    unlockAudioSync();
   };
 
   window.addEventListener("pointerdown", onGesture, { capture: true, passive: true });
@@ -282,13 +312,6 @@ export function setVolume(v: number) {
   saveAudioPrefs();
 }
 
-function runSfx(name: Sfx) {
-  const ac = getCtx();
-  if (ac.state !== "running") return false;
-  playTones(name);
-  return true;
-}
-
 export function getAudioDebugStatus(): {
   supported: boolean;
   contextState: AudioContextState | "none";
@@ -329,50 +352,68 @@ export function getAudioDebugStatus(): {
   }
 }
 
-/** Play from a click handler; returns why audio did or did not run. */
-export async function playSfxWithFeedback(name: Sfx): Promise<SfxPlayResult> {
+function deliverSfx(name: Sfx): SfxPlayResult {
+  const ac = getCtx();
+  if (ac.state !== "running") {
+    return { ok: false, reason: "context-blocked", contextState: ac.state };
+  }
+  playTones(name);
+  return { ok: true, contextState: ac.state };
+}
+
+/**
+ * Play from a click/tap handler. Never await resume() before scheduling tones —
+ * use resume().then(play) so the first click both unlocks and plays.
+ */
+export function playSfxWithFeedback(name: Sfx): Promise<SfxPlayResult> {
   if (typeof window === "undefined") {
-    return { ok: false, reason: "unsupported", contextState: "none" };
+    return Promise.resolve({ ok: false, reason: "unsupported", contextState: "none" });
   }
   if (muted) {
-    return { ok: false, reason: "muted", contextState: ctx?.state ?? "none" };
+    return Promise.resolve({ ok: false, reason: "muted", contextState: ctx?.state ?? "none" });
   }
   if (volume <= 0) {
-    return { ok: false, reason: "volume-zero", contextState: ctx?.state ?? "none" };
+    return Promise.resolve({
+      ok: false,
+      reason: "volume-zero",
+      contextState: ctx?.state ?? "none",
+    });
   }
+
   try {
-    primeAudioFromGesture();
     const ac = getCtx();
-    if (ac.state !== "running") {
-      await ac.resume();
+    if (ac.state === "running") {
+      return Promise.resolve(deliverSfx(name));
     }
-    const state = getCtx().state;
-    if (state !== "running") {
-      return { ok: false, reason: "context-blocked", contextState: state };
-    }
-    playTones(name);
-    return { ok: true, contextState: state };
+    return whenRunning()
+      .then(() => deliverSfx(name))
+      .catch((e) => ({
+        ok: false as const,
+        reason: "error" as const,
+        contextState: ctx?.state ?? "none",
+        detail: e instanceof Error ? e.message : String(e),
+      }));
   } catch (e) {
-    return {
+    return Promise.resolve({
       ok: false,
       reason: "error",
       contextState: ctx?.state ?? "none",
       detail: e instanceof Error ? e.message : String(e),
-    };
+    });
   }
 }
 
 export function playSfx(name: Sfx) {
   if (typeof window === "undefined" || muted || volume <= 0) return;
-  primeAudioFromGesture();
+  unlockAudioSync();
   try {
     const ac = getCtx();
     if (ac.state === "running") {
-      runSfx(name);
+      playTones(name);
       return;
     }
-    void ac.resume().then(() => {
-      if (!muted && volume > 0) runSfx(name);
+    void whenRunning().then(() => {
+      if (!muted && volume > 0) playTones(name);
     });
   } catch {
     /* ignore */

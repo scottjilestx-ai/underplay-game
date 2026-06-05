@@ -7,9 +7,9 @@ import {
   getAudioDebugStatus,
   loadAudioPrefs,
   playSfxWithFeedback,
-  primeAudioFromGesture,
   setMuted,
   setVolume,
+  unlockAudioSync,
   SFX_CATALOG,
   type Sfx,
   type SfxPlayResult,
@@ -29,7 +29,7 @@ export function SoundDiagPage() {
   const [vol, setVol] = useState(() => loadAudioPrefs().volume);
   const [status, setStatus] = useState(getAudioDebugStatus);
   const [lastPlay, setLastPlay] = useState<PlayLog | null>(null);
-  const [playingId, setPlayingId] = useState<Sfx | null>(null);
+  const [audioReady, setAudioReady] = useState(false);
 
   const refreshStatus = useCallback(() => {
     setStatus(getAudioDebugStatus());
@@ -46,18 +46,22 @@ export function SoundDiagPage() {
     return () => clearInterval(t);
   }, [refreshStatus]);
 
-  const handlePlay = async (id: Sfx) => {
-    setPlayingId(id);
-    primeAudioFromGesture();
-    const result = await playSfxWithFeedback(id);
-    setLastPlay({ id, at: new Date().toLocaleTimeString(), result });
-    refreshStatus();
-    setPlayingId(null);
+  const handleEnableAudio = () => {
+    unlockAudioSync();
+    void playSfxWithFeedback("tap").then((result) => {
+      setAudioReady(result.ok);
+      setLastPlay({ id: "tap", at: new Date().toLocaleTimeString(), result });
+      refreshStatus();
+    });
   };
 
-  const handlePrime = () => {
-    primeAudioFromGesture();
-    refreshStatus();
+  const handlePlay = (id: Sfx) => {
+    unlockAudioSync();
+    void playSfxWithFeedback(id).then((result) => {
+      if (result.ok) setAudioReady(true);
+      setLastPlay({ id, at: new Date().toLocaleTimeString(), result });
+      refreshStatus();
+    });
   };
 
   const statusTone = (ok: boolean) => (ok ? "text-emerald-300" : "text-rose-300");
@@ -78,11 +82,17 @@ export function SoundDiagPage() {
         </div>
 
         <h1 className="font-serif text-2xl text-theme-ink mb-1">Sound diagnostics</h1>
-        <p className="text-theme-muted text-sm mb-6 leading-relaxed">
-          Test every game sound in isolation. If Play works here but not in a match, the issue is
-          timing or triggers — not your speakers. Each Play click also primes Web Audio (same as
-          in-game).
+        <p className="text-theme-muted text-sm mb-4 leading-relaxed">
+          Test every game sound in isolation. Browsers require a user click to start Web Audio —
+          use <strong className="text-theme-ink font-medium">Enable audio</strong> once, then each
+          Play should work on the first press.
         </p>
+
+        {!audioReady && status.contextState !== "running" && (
+          <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-950/40 px-4 py-3 text-sm text-amber-100">
+            Audio is locked until you click Enable audio (browser autoplay policy).
+          </div>
+        )}
 
         <section className="rounded-2xl border border-theme-border bg-theme-panel p-4 sm:p-5 mb-6">
           <h2 className="text-[10px] uppercase tracking-widest text-theme-muted mb-3">
@@ -124,10 +134,16 @@ export function SoundDiagPage() {
           <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t border-theme-border">
             <button
               type="button"
-              onClick={handlePrime}
-              className="px-4 py-2 rounded-lg border border-theme-border bg-black/40 text-theme-ink text-sm font-semibold hover:bg-black/55 transition"
+              onClick={handleEnableAudio}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
+                audioReady || status.contextState === "running"
+                  ? "border border-emerald-500/40 bg-emerald-950/50 text-emerald-100"
+                  : `bg-gradient-to-r ${theme.buttonGradient} text-black hover:opacity-90`
+              }`}
             >
-              Prime audio
+              {audioReady || status.contextState === "running"
+                ? "Audio enabled"
+                : "Enable audio"}
             </button>
             <button
               type="button"
@@ -217,15 +233,12 @@ export function SoundDiagPage() {
                     <td className="px-4 py-3 align-top text-right">
                       <button
                         type="button"
-                        disabled={playingId !== null || muted || vol <= 0}
-                        onClick={() => void handlePlay(row.id)}
-                        className={`min-w-[4.5rem] px-3 py-1.5 rounded-lg text-xs font-bold transition disabled:opacity-40 ${
-                          playingId === row.id
-                            ? "bg-amber-600/50 text-amber-100"
-                            : `bg-gradient-to-r ${theme.buttonGradient} text-black hover:opacity-90`
-                        }`}
+                        disabled={muted || vol <= 0}
+                        onPointerDown={unlockAudioSync}
+                        onClick={() => handlePlay(row.id)}
+                        className={`min-w-[4.5rem] px-3 py-1.5 rounded-lg text-xs font-bold transition disabled:opacity-40 bg-gradient-to-r ${theme.buttonGradient} text-black hover:opacity-90`}
                       >
-                        {playingId === row.id ? "…" : "Play"}
+                        Play
                       </button>
                     </td>
                   </tr>
