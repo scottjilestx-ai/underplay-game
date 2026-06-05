@@ -9,21 +9,25 @@ export type PlayToScore = (typeof PLAY_TO_SCORE_OPTIONS)[number];
 export const STACK_DISPLAY_OPTIONS: {
   id: StackDisplayMode;
   label: string;
+  shortLabel: string;
   hint: string;
 }[] = [
   {
     id: "full",
     label: "Full stack",
+    shortLabel: "Full",
     hint: "Fan of recent cards — older plays stay visible underneath.",
   },
   {
     id: "lastPlay",
     label: "Last play only",
+    shortLabel: "Last play",
     hint: "Only the cards from the most recent play (e.g. three queens).",
   },
   {
     id: "none",
     label: "Top card only",
+    shortLabel: "Top only",
     hint: "Card edges below the top — ranks hidden under the top card.",
   },
 ];
