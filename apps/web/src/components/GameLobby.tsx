@@ -6,6 +6,7 @@ import type { CpuDifficulty } from "@underplay/engine";
 import { useTheme } from "@/context/ThemeProvider";
 import { LobbyChrome } from "./LobbyChrome";
 import { ScrollPage } from "./ScrollPage";
+import { primeAudioFromGesture } from "@/lib/audio";
 import {
   defaultOpponents,
   loadStoredDisplayName,
@@ -117,6 +118,7 @@ export function GameLobby({ startError, onStart }: Props) {
   };
 
   const handleStart = () => {
+    primeAudioFromGesture();
     const trimmed = playerName.trim() || "You";
     storeDisplayName(trimmed);
     onStart({
@@ -222,6 +224,34 @@ export function GameLobby({ startError, onStart }: Props) {
             ))}
           </div>
 
+          <FieldLabel>Who plays first</FieldLabel>
+          <div className="flex flex-wrap gap-2 mb-5">
+            <Pill
+              value={"random" as const}
+              selected={firstPlayer === "random"}
+              onSelect={setFirstPlayer}
+            >
+              Random
+            </Pill>
+            <Pill
+              value={0 as const}
+              selected={firstPlayer === 0}
+              onSelect={setFirstPlayer}
+            >
+              {playerName.trim() || "You"}
+            </Pill>
+            {opponents.slice(0, opponentCount).map((opp, i) => (
+              <Pill
+                key={i}
+                value={(i + 1) as number}
+                selected={firstPlayer === i + 1}
+                onSelect={setFirstPlayer}
+              >
+                {opp.name.trim() || `Player ${i + 2}`}
+              </Pill>
+            ))}
+          </div>
+
           <button
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
@@ -236,34 +266,6 @@ export function GameLobby({ startError, onStart }: Props) {
 
           {showAdvanced && (
             <div className="mb-2 border-t border-theme-border pt-4">
-              <FieldLabel>Who plays first</FieldLabel>
-              <div className="flex flex-wrap gap-2 mb-5">
-                <Pill
-                  value={"random" as const}
-                  selected={firstPlayer === "random"}
-                  onSelect={setFirstPlayer}
-                >
-                  Random
-                </Pill>
-                <Pill
-                  value={0 as const}
-                  selected={firstPlayer === 0}
-                  onSelect={setFirstPlayer}
-                >
-                  {playerName.trim() || "You"}
-                </Pill>
-                {opponents.slice(0, opponentCount).map((opp, i) => (
-                  <Pill
-                    key={i}
-                    value={(i + 1) as number}
-                    selected={firstPlayer === i + 1}
-                    onSelect={setFirstPlayer}
-                  >
-                    {opp.name.trim() || `Player ${i + 2}`}
-                  </Pill>
-                ))}
-              </div>
-
               <FieldLabel>Stack on table</FieldLabel>
               <div className="flex flex-wrap gap-2 mb-1">
                 {STACK_DISPLAY_OPTIONS.map((opt) => (
