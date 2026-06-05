@@ -3,16 +3,26 @@
 import { AnimatePresence, motion } from "framer-motion";
 import type { Card } from "@underplay/engine";
 import { stackZoneHeightRem, stackZoneWidthRem } from "@/lib/cardDimensions";
+import type { StackDisplayMode } from "@/lib/gameSetup";
+import { stackCardsForDisplay } from "@/lib/gameSetup";
 import { PlayingCard } from "./PlayingCard";
 
 interface Props {
   stack: Card[];
+  displayMode: StackDisplayMode;
+  lastPlayCount: number;
   reducedMotion?: boolean;
   landedCardIds?: ReadonlySet<string>;
 }
 
-export function StackPile({ stack, reducedMotion, landedCardIds }: Props) {
-  const visible = stack.slice(-6);
+export function StackPile({
+  stack,
+  displayMode,
+  lastPlayCount,
+  reducedMotion,
+  landedCardIds,
+}: Props) {
+  const entries = stackCardsForDisplay(stack, displayMode, lastPlayCount);
 
   return (
     <div
@@ -40,40 +50,44 @@ export function StackPile({ stack, reducedMotion, landedCardIds }: Props) {
       <div className="absolute inset-0 z-10 flex items-center justify-center">
         <div className="relative w-[4.5rem] h-[6.5rem]">
           <AnimatePresence mode="popLayout">
-            {stack.length > 0 &&
-              visible.map((c, i) => {
-                const isTop = i === visible.length - 1;
-                const offset = i - (visible.length - 1);
-                const justLanded = landedCardIds?.has(c.id);
-                return (
-                  <motion.div
-                    key={`stack-${c.id}`}
-                    className="absolute left-1/2 top-1/2"
-                    style={{ marginLeft: "-2.25rem", marginTop: "-3.25rem" }}
-                    initial={
-                      reducedMotion || justLanded
-                        ? false
-                        : { opacity: 0, y: 40, scale: 0.88 }
-                    }
-                    animate={{
-                      opacity: 1,
-                      y: offset * 4,
-                      x: offset * 14,
-                      rotate: offset * 2.5,
-                      scale: isTop ? 1 : 0.96,
-                      zIndex: 10 + i,
-                    }}
-                    exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -24, scale: 0.85 }}
-                    transition={
-                      reducedMotion
-                        ? { duration: 0.12 }
-                        : { type: "spring", stiffness: 200, damping: 22, mass: 1.1 }
-                    }
-                  >
-                    <PlayingCard card={c} small={!isTop} reducedMotion={reducedMotion} />
-                  </motion.div>
-                );
-              })}
+            {entries.map((entry, i) => {
+              const isTop = i === entries.length - 1;
+              const offset = i - (entries.length - 1);
+              const justLanded = landedCardIds?.has(entry.card.id);
+              return (
+                <motion.div
+                  key={`stack-${entry.card.id}`}
+                  className="absolute left-1/2 top-1/2"
+                  style={{ marginLeft: "-2.25rem", marginTop: "-3.25rem" }}
+                  initial={
+                    reducedMotion || justLanded
+                      ? false
+                      : { opacity: 0, y: 40, scale: 0.88 }
+                  }
+                  animate={{
+                    opacity: 1,
+                    y: offset * 4,
+                    x: offset * 14,
+                    rotate: offset * 2.5,
+                    scale: isTop ? 1 : 0.96,
+                    zIndex: 10 + i,
+                  }}
+                  exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -24, scale: 0.85 }}
+                  transition={
+                    reducedMotion
+                      ? { duration: 0.12 }
+                      : { type: "spring", stiffness: 200, damping: 22, mass: 1.1 }
+                  }
+                >
+                  <PlayingCard
+                    card={entry.card}
+                    faceDown={entry.faceDown}
+                    small={displayMode === "full" && !isTop}
+                    reducedMotion={reducedMotion}
+                  />
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
       </div>

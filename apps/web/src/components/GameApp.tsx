@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,7 +18,7 @@ import {
   startNextRound,
   topValue,
   type Card,
-  type CpuDifficulty,
+  DEFAULT_RULES,
   type GameState,
   type Move,
   type PlayerSetup,
@@ -84,11 +83,11 @@ import {
   summarizeStackPlay,
 } from "@/lib/playSummary";
 import { PlaySummaryFly, type PlaySummaryPayload } from "./PlaySummaryFly";
+import { GameLobby } from "./GameLobby";
+import { nextLastPlayStackCount, type GameSetupConfig } from "@/lib/gameSetup";
 
 const CPU_TURN_DELAY_MS = 1400;
 const CPU_TURN_DELAY_REDUCED_MS = 120;
-
-const CPU_NAMES = ["Alex", "Jordan", "Riley", "Casey"];
 const CPU_PORTRAITS = [
   "from-amber-700 to-amber-900",
   "from-slate-600 to-slate-800",
@@ -107,9 +106,9 @@ function initSlotMaps(state: GameState): Record<number, SlotMap> {
 export function GameApp() {
   const router = useRouter();
   const [screen, setScreen] = useState<"lobby" | "game">("lobby");
-  const [playerCount, setPlayerCount] = useState(4);
-  const [difficulty, setDifficulty] = useState<CpuDifficulty>("medium");
   const [state, setState] = useState<GameState | null>(null);
+  const gameConfigRef = useRef<GameSetupConfig | null>(null);
+  const [stackLastPlayCount, setStackLastPlayCount] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [skipTarget, setSkipTarget] = useState<number | null>(null);
   const [muted, setMutedState] = useState(false);
@@ -143,6 +142,11 @@ export function GameApp() {
   const [stockCounts, setStockCounts] = useState<Record<number, number>>({});
   const [handFaceDown, setHandFaceDown] = useState(false);
   const humanSeat = 0;
+  const isHotseat = gameConfigRef.current?.mode === "hotseat";
+  const viewSeat =
+    state != null && isHotseat && deckPhase === null
+      ? state.currentSeat
+      : humanSeat;
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -493,22 +497,30 @@ export function GameApp() {
   }, [deckPhase, reducedMotion]);
 
   const patchState = useCallback((next: GameState) => {
-    setState(normalizeGameState(next));
+    setState((prev) => {
+      if (prev) {
+        setStackLastPlayCount((c) => nextLastPlayStackCount(prev, next, c));
+      }
+      return normalizeGameState(next);
+    });
   }, []);
 
-  const startGame = () => {
+  const startGame = (config: GameSetupConfig) => {
     setStartError(null);
     try {
-      const setups: PlayerSetup[] = [];
-      setups.push({ name: "You", isCpu: false });
-      for (let i = 1; i < playerCount; i++) {
+      gameConfigRef.current = config;
+      setStackLastPlayCount(0);
+      const setups: PlayerSetup[] = [{ name: config.playerName, isCpu: false }];
+      for (let i = 0; i < config.opponentCount; i++) {
+        const opp = config.opponents[i];
         setups.push({
-          name: CPU_NAMES[(i - 1) % CPU_NAMES.length],
-          isCpu: true,
-          difficulty,
+          name: opp?.name?.trim() || `Player ${i + 2}`,
+          isCpu: config.mode === "cpu",
+          difficulty: config.mode === "cpu" ? opp?.difficulty ?? "medium" : undefined,
         });
       }
-      const g = normalizeGameState(createMatch(setups, undefined, Date.now()));
+      const rules = { ...DEFAULT_RULES, endingScore: config.playToScore };
+      const g = normalizeGameState(createMatch(setups, rules, Date.now()));
       slotMapsRef.current = initSlotMaps(g);
       for (const t of dealTimersRef.current) clearTimeout(t);
       dealTimersRef.current = [];
@@ -535,15 +547,15 @@ export function GameApp() {
   };
 
   const awaitingConfirm = Boolean(
-    state && state.currentSeat === humanSeat && isAwaitingHigherConfirm(state),
+    state && state.currentSeat === viewSeat && isAwaitingHigherConfirm(state),
   );
   const confirmRank = state?.pendingHigherConfirm?.rank ?? null;
 
   const humanMoves = useMemo(() => {
-    if (!state || state.phase !== "playing" || state.currentSeat !== humanSeat) return [];
+    if (!state || state.phase !== "playing" || state.currentSeat !== viewSeat) return [];
     if (awaitingConfirm) return [];
-    return legalMoves(state, humanSeat);
-  }, [state, awaitingConfirm]);
+    return legalMoves(state, viewSeat);
+  }, [state, awaitingConfirm, viewSeat]);
 
   const canPlay = useMemo(() => {
     if (!selected.length || !state) return false;
@@ -558,20 +570,20 @@ export function GameApp() {
   const canAddToHigher = useMemo(() => {
     if (!state || !awaitingConfirm || !selected.length) return false;
     const key = [...selected].sort().join(",");
-    return legalHigherExtensions(state, humanSeat).some(
+    return legalHigherExtensions(state, viewSeat).some(
       (ids) => [...ids].sort().join(",") === key,
     );
-  }, [state, awaitingConfirm, selected]);
+  }, [state, awaitingConfirm, selected, viewSeat]);
 
   const isSkipSelection = useMemo(() => {
     if (!state || selected.length !== 1) return false;
-    const c = findInZones(state.players[humanSeat], selected[0]);
+    const c = findInZones(state.players[viewSeat], selected[0]);
     return c?.kind === "skip";
-  }, [state, selected]);
+  }, [state, selected, viewSeat]);
 
   const heldValue = useMemo(() => {
     if (!state) return 0;
-    const p = state.players[humanSeat];
+    const p = state.players[viewSeat];
     return [...p.hand, ...p.faceUp].reduce(
       (sum, c) => sum + cardPoints(c, state.rules),
       0,
@@ -650,29 +662,29 @@ export function GameApp() {
       };
       if (reducedMotion) {
         done();
-        if (seat === humanSeat) setPlayAnimating(false);
+        if (seat === viewSeat) setPlayAnimating(false);
         return;
       }
-      const hideIds = seat === humanSeat ? cardIds : [];
+      const hideIds = seat === viewSeat ? cardIds : [];
       if (hideIds.length) setHiddenFlyIds(new Set(hideIds));
-      if (seat === humanSeat) setPlayAnimating(true);
+      if (seat === viewSeat) setPlayAnimating(true);
 
       requestAnimationFrame(() => {
-        const specs = buildFlySpecs(cardIds, cards, seat !== humanSeat ? seat : undefined);
+        const specs = buildFlySpecs(cardIds, cards, seat !== viewSeat ? seat : undefined);
         if (!specs) {
           finishFly(cardIds, done);
-          if (seat === humanSeat) setPlayAnimating(false);
+          if (seat === viewSeat) setPlayAnimating(false);
           return;
         }
         setFlyDeal(false);
         flyCommitRef.current = () => {
           finishFly(cardIds, done);
-          if (seat === humanSeat) setPlayAnimating(false);
+          if (seat === viewSeat) setPlayAnimating(false);
         };
         setFlyingSpecs(specs);
       });
     },
-    [state, reducedMotion, finishFly],
+    [state, reducedMotion, finishFly, viewSeat],
   );
 
   const applyHumanMove = useCallback(
@@ -773,7 +785,8 @@ export function GameApp() {
     const played = move.cardIds
       .map((id) => findInZones(prev.players[seat], id))
       .filter(Boolean);
-    const stillYourTurn = next.currentSeat === seat && seat === humanSeat && next.phase === "playing";
+    const stillYourTurn =
+      next.currentSeat === seat && seat === viewSeat && next.phase === "playing";
 
     if (played.some((c) => c?.kind === "clear") || (next.stack.length === 0 && prev.stack.length > 0 && played[0]?.kind !== "skip")) {
       playSfx(next.deadPile.length > prev.deadPile.length ? "tap" : "clear");
@@ -830,66 +843,7 @@ export function GameApp() {
   }
 
   if (screen === "lobby") {
-    return (
-      <div className="min-h-screen lobby-bg flex items-center justify-center p-6">
-        <motion.div
-          initial={false}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full rounded-2xl bg-black/40 backdrop-blur-md border border-amber-500/20 p-8 shadow-2xl"
-        >
-          <Link
-            href="/"
-            className="text-amber-200/50 text-sm hover:text-amber-200/80 transition mb-4 inline-block"
-          >
-            ← Home
-          </Link>
-          <h1 className="font-serif text-4xl text-amber-100 tracking-tight mb-1">{BRAND_NAME}</h1>
-          <p className="text-amber-200/70 text-sm mb-8">Play under the top card — or pick up the pile.</p>
-          <label className="block text-amber-100/80 text-sm mb-2">
-            Table size ({playerCount} players)
-          </label>
-          <input
-            type="range"
-            min={2}
-            max={4}
-            value={playerCount}
-            onChange={(e) => setPlayerCount(Number(e.target.value))}
-            className="w-full mb-2 accent-amber-400"
-          />
-          <p className="text-amber-200/50 text-xs mb-6">
-            You plus {playerCount - 1} CPU opponent{playerCount > 2 ? "s" : ""} — all seats are
-            played by the computer in solo mode.
-          </p>
-          <label className="block text-amber-100/80 text-sm mb-2">CPU difficulty</label>
-          <select
-            value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value as CpuDifficulty)}
-            className="w-full mb-8 bg-black/30 border border-amber-500/30 rounded-lg px-3 py-2 text-amber-50"
-          >
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </select>
-          {startError && (
-            <p className="mb-4 text-rose-300 text-sm rounded-lg bg-rose-950/50 border border-rose-500/30 px-3 py-2">
-              {startError}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={startGame}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 text-black font-semibold hover:from-amber-500 hover:to-amber-400 transition"
-          >
-            Deal & Play
-          </button>
-          <p className="mt-4 text-amber-200/40 text-xs text-center">
-            <Link href="/online" className="text-amber-300/80 hover:text-amber-200">
-              Play online with friends
-            </Link>
-          </p>
-        </motion.div>
-      </div>
-    );
+    return <GameLobby startError={startError} onStart={startGame} />;
   }
 
   if (!state) {
@@ -914,17 +868,18 @@ export function GameApp() {
       </div>
     );
   }
-  const me = state.players[humanSeat];
+  const stackDisplay = gameConfigRef.current?.stackDisplay ?? "full";
+  const me = state.players[viewSeat];
   const T = topValue(state.stack);
-  const myTurn = state.currentSeat === humanSeat && state.phase === "playing";
+  const myTurn = state.currentSeat === viewSeat && state.phase === "playing";
   const activePlayer = state.players[state.currentSeat];
   const sortedHand = sortHand(me.hand);
-  const handInDealOrder = handDealOrder(state, humanSeat);
+  const handInDealOrder = handDealOrder(state, viewSeat);
   const displayHand =
     deckPhase === "hand-sort" || deckPhase === "lets-play" || deckPhase === null
       ? sortedHand
       : handInDealOrder;
-  const mySlotMap = slotMapsRef.current[humanSeat] ?? buildSlotMap(me.faceDown, me.faceUp);
+  const mySlotMap = slotMapsRef.current[viewSeat] ?? buildSlotMap(me.faceDown, me.faceUp);
   const introActive = deckPhase !== null;
   const reveal = cardRevealLevel(deckPhase);
   const animPhase = deckAnimPhase(deckPhase);
@@ -980,7 +935,7 @@ export function GameApp() {
             disabled={muted}
           />
           {state.scores.map((s, i) => (
-            <span key={i} className={i === humanSeat ? "text-amber-300 font-medium" : ""}>
+            <span key={i} className={i === viewSeat ? "text-amber-300 font-medium" : ""}>
               {state.players[i].name}: {s}
             </span>
           ))}
@@ -1024,7 +979,7 @@ export function GameApp() {
           <div className="flex-1 min-h-0 flex flex-col">
             {showOpponentZone(deckPhase) && (
               <OpponentZone
-                players={state.players.filter((p) => p.seat !== humanSeat)}
+                players={state.players.filter((p) => p.seat !== viewSeat)}
                 currentSeat={state.currentSeat}
                 slotMapsRef={slotMapsRef}
                 reducedMotion={reducedMotion}
@@ -1046,6 +1001,8 @@ export function GameApp() {
                 <div className="flex flex-col items-center gap-3 w-full max-w-md mx-auto relative z-20">
                   <StackPile
                     stack={reveal >= 3 ? state.stack : []}
+                    displayMode={stackDisplay}
+                    lastPlayCount={stackLastPlayCount}
                     reducedMotion={reducedMotion}
                     landedCardIds={landedCardIds}
                   />
@@ -1097,7 +1054,7 @@ export function GameApp() {
         {(state.phase === "roundOver" || state.phase === "matchOver") && (
           <EndOverlay
             state={state}
-            humanSeat={humanSeat}
+            humanSeat={viewSeat}
             onNext={() => {
               if (state.phase === "matchOver") {
                 setScreen("lobby");
@@ -1123,7 +1080,7 @@ export function GameApp() {
             <section className="shrink-0 z-20 flex flex-col gap-1 pt-2 border-t border-amber-900/20">
               <div className="shrink-0">
                 <PlayerTableSlots
-                  seat={humanSeat}
+                  seat={viewSeat}
                   faceDown={
                     introActive
                       ? me.faceDown.filter((c) => dealtDownIds.has(c.id))
@@ -1150,7 +1107,7 @@ export function GameApp() {
               <div className="shrink-0">
                 {handVisible ? (
                   <HandRow
-                    seat={humanSeat}
+                    seat={viewSeat}
                     cards={displayHand}
                     selected={selected}
                     interactive={myTurn && !playAnimating && !introActive}
@@ -1163,8 +1120,8 @@ export function GameApp() {
                 ) : (
                   <div className="flex justify-center py-2 min-h-[7rem]">
                     <DealStockPile
-                      seat={humanSeat}
-                      count={stockCounts[humanSeat] ?? 0}
+                      seat={viewSeat}
+                      count={stockCounts[viewSeat] ?? 0}
                       reducedMotion={reducedMotion}
                     />
                   </div>
@@ -1176,7 +1133,7 @@ export function GameApp() {
               <div className="flex gap-2 items-center justify-center mb-2 w-full">
                 <span className="text-amber-200/70 text-sm">Skip target:</span>
                 {state.players
-                  .filter((p) => p.seat !== humanSeat && !p.pendingSkip)
+                  .filter((p) => p.seat !== viewSeat && !p.pendingSkip)
                   .map((p) => (
                     <button
                       key={p.seat}
@@ -1210,9 +1167,9 @@ export function GameApp() {
                           setSelected([]);
                         };
                         const cards = ids
-                          .map((id) => findInPlayerZones(prev.players[humanSeat], id))
+                          .map((id) => findInPlayerZones(prev.players[viewSeat], id))
                           .filter((c): c is Card => !!c);
-                        runWithFly(humanSeat, ids, cards, commit, () => {
+                        runWithFly(viewSeat, ids, cards, commit, () => {
                           const next = extendHigherPlay(prev, ids);
                           const suffix = turnLogHigherExtensionResult(prev, next);
                           const action = turnLogHigherExtension(prev, ids) + suffix;
@@ -1305,22 +1262,22 @@ export function GameApp() {
   function toggleSelect(id: string) {
     setSelected((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
-      const card = state && findInZones(state.players[humanSeat], id);
+      const card = state && findInZones(state.players[viewSeat], id);
       if (awaitingConfirm && confirmRank != null) {
         const fromHandOrUp =
           state &&
-          (state.players[humanSeat].hand.some((c) => c.id === id) ||
-            state.players[humanSeat].faceUp.some((c) => c.id === id));
+          (state.players[viewSeat].hand.some((c) => c.id === id) ||
+            state.players[viewSeat].faceUp.some((c) => c.id === id));
         if (!fromHandOrUp || card?.kind !== "play" || card.value !== confirmRank) return prev;
         if (prev.length && state) {
-          const first = findInZones(state.players[humanSeat], prev[0]);
+          const first = findInZones(state.players[viewSeat], prev[0]);
           if (first?.value !== confirmRank) return [id];
         }
         return [...prev, id];
       }
       if (card?.kind === "clear" || card?.kind === "skip") return [id];
       if (prev.length && state) {
-        const first = findInZones(state.players[humanSeat], prev[0]);
+        const first = findInZones(state.players[viewSeat], prev[0]);
         if (first?.kind !== "play" || card?.kind !== "play" || first.value !== card.value) return [id];
       }
       return [...prev, id];

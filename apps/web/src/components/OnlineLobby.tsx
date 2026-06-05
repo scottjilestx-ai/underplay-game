@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { loadStoredDisplayName, storeDisplayName } from "@/lib/gameSetup";
 
 function randomRoomCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -12,7 +13,11 @@ function randomRoomCode(): string {
 }
 
 export function OnlineLobby() {
-  const [name, setName] = useState("");
+  const [name, setName] = useState("You");
+
+  useEffect(() => {
+    setName(loadStoredDisplayName());
+  }, []);
   const [joinCode, setJoinCode] = useState("");
   /** Non-null when you created the room — you are already in as host. */
   const [hostedCode, setHostedCode] = useState<string | null>(null);
@@ -29,7 +34,9 @@ export function OnlineLobby() {
   }, [name]);
 
   const createRoom = useCallback(() => {
-    if (!requireName()) return;
+    const trimmed = requireName();
+    if (!trimmed) return;
+    storeDisplayName(trimmed);
     const code = randomRoomCode();
     setHostedCode(code);
     setJoinCode("");
@@ -42,7 +49,9 @@ export function OnlineLobby() {
   }, []);
 
   const joinRoom = useCallback(() => {
-    if (!requireName()) return;
+    const trimmed = requireName();
+    if (!trimmed) return;
+    storeDisplayName(trimmed);
     const code = joinCode.trim().toUpperCase();
     if (code.length < 4) {
       setMessage("Enter the room code you were given.");
