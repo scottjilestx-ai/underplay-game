@@ -29,16 +29,36 @@ export function turnEndedAfterConfirm(prev: GameState, next: GameState): boolean
   return next.currentSeat !== prev.currentSeat;
 }
 
-function cardsFromMove(state: GameState, seat: number, move: Move): Card[] {
+function cardFromPlayer(
+  state: GameState,
+  seat: number,
+  id: string,
+): Card | undefined {
   const p = state.players[seat];
+  if (!p) return undefined;
+  return (
+    p.hand.find((c) => c.id === id) ??
+    p.faceUp.find((c) => c.id === id) ??
+    p.faceDown.find((c) => c.id === id)
+  );
+}
+
+/** Resolve played cards for logging (hand, face-up, face-down). */
+export function cardsForMove(state: GameState, seat: number, move: Move): Card[] {
   return move.cardIds
-    .map(
-      (id) =>
-        p.hand.find((c) => c.id === id) ??
-        p.faceUp.find((c) => c.id === id) ??
-        p.faceDown.find((c) => c.id === id),
-    )
+    .map((id) => cardFromPlayer(state, seat, id))
     .filter((c): c is Card => !!c);
+}
+
+function cardsFromMove(state: GameState, seat: number, move: Move): Card[] {
+  return cardsForMove(state, seat, move);
+}
+
+/** True when the move plays a single Overcut (skip) card. */
+export function isSkipMove(state: GameState, seat: number, move: Move): boolean {
+  if (move.cardIds.length !== 1) return false;
+  const card = cardFromPlayer(state, seat, move.cardIds[0]);
+  return card?.kind === "skip";
 }
 
 function cardsFromIds(state: GameState, seat: number, cardIds: string[]): Card[] {
@@ -82,10 +102,12 @@ export function turnLogMoveAction(
     }
     return `cleared the stack with ${cards}`;
   }
-  if (played.some((c) => c.kind === "skip")) {
+  if (played.some((c) => c.kind === "skip") || isSkipMove(prev, seat, move)) {
     const target =
-      move.targetSeat != null ? next.players[move.targetSeat]?.name : "next player";
-    return `played ${cards} → skip ${target}`;
+      move.targetSeat != null
+        ? (next.players[move.targetSeat]?.name ?? "opponent")
+        : "next player";
+    return `Overcut → ${target}`;
   }
   if (move.cardIds.some((id) => prev.players[seat].faceDown.some((c) => c.id === id))) {
     const flip = phraseFlippedCards(played);

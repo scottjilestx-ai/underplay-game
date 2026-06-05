@@ -29,6 +29,8 @@ import { UnderPlayLogo } from "./UnderPlayLogo";
 import { buildSlotMap, opponentTableWidthRem, type SlotMap } from "@/lib/cardSlots";
 import { sortHand } from "@/lib/sortCards";
 import {
+  cardsForMove,
+  isSkipMove,
   recordTurnPlay,
   turnEndedAfterConfirm,
   turnEndedAfterMove,
@@ -85,7 +87,7 @@ import { GameLobby } from "./GameLobby";
 import { nextLastPlayStackCount, type GameSetupConfig } from "@/lib/gameSetup";
 import {
   createOvercutHold,
-  isOvercutPlay,
+
   overcutHeldIncoming,
   overcutHeldOnTarget,
   type OvercutHold,
@@ -785,34 +787,42 @@ export function GameApp() {
       const prev = state;
       const playerName = prev.players[prev.currentSeat].name;
 
-      const cards = move.cardIds
-        .map((id) => findInPlayerZones(prev.players[prev.currentSeat], id))
-        .filter((c): c is Card => !!c);
+      const seat = prev.currentSeat;
+      const cards = cardsForMove(prev, seat, move);
 
-      if (isOvercutPlay(cards)) {
+      if (isSkipMove(prev, seat, move)) {
         const next = applyMove(prev, move);
         detectSfx(prev, next, move);
         patchState(next);
         registerOvercutHold(prev, next, move, cards);
-        const action = turnLogMoveAction(prev, next, move);
-        pushTurn(playerName, prev.currentSeat, action, turnEndedAfterMove(prev, next));
+        pushTurn(
+          playerName,
+          seat,
+          turnLogMoveAction(prev, next, move),
+          turnEndedAfterMove(prev, next),
+        );
         setSelected([]);
         setSkipTarget(null);
         return;
       }
 
+      let applied: GameState | null = null;
       const commit = () => {
-        const next = applyMove(prev, move);
-        detectSfx(prev, next, move);
-        patchState(next);
+        applied = applyMove(prev, move);
+        detectSfx(prev, applied, move);
+        patchState(applied);
         setSelected([]);
         setSkipTarget(null);
       };
 
-      runWithFly(prev.currentSeat, move.cardIds, cards, commit, () => {
-        const next = applyMove(prev, move);
-        const action = turnLogMoveAction(prev, next, move);
-        pushTurn(playerName, prev.currentSeat, action, turnEndedAfterMove(prev, next));
+      runWithFly(seat, move.cardIds, cards, commit, () => {
+        if (!applied) return;
+        pushTurn(
+          playerName,
+          seat,
+          turnLogMoveAction(prev, applied, move),
+          turnEndedAfterMove(prev, applied),
+        );
       });
     },
     [state, deckPhase, patchState, playAnimating, runWithFly, pushTurn, registerOvercutHold],
@@ -844,30 +854,37 @@ export function GameApp() {
     const move = chooseMove(s, seat, p.difficulty ?? "medium") ?? moves[0];
     if (!move) return;
 
-    const cards = move.cardIds
-      .map((id) => findInPlayerZones(s.players[seat], id))
-      .filter((c): c is Card => !!c);
+    const cards = cardsForMove(s, seat, move);
 
-    if (isOvercutPlay(cards)) {
+    if (isSkipMove(s, seat, move)) {
       const next = applyMove(s, move);
       detectSfx(s, next, move);
       patchState(next);
       registerOvercutHold(s, next, move, cards);
-      const action = turnLogMoveAction(s, next, move);
-      pushTurn(playerName, seat, action, turnEndedAfterMove(s, next));
+      pushTurn(
+        playerName,
+        seat,
+        turnLogMoveAction(s, next, move),
+        turnEndedAfterMove(s, next),
+      );
       return;
     }
 
+    let applied: GameState | null = null;
     const commit = () => {
-      const next = applyMove(s, move);
-      detectSfx(s, next, move);
-      patchState(next);
+      applied = applyMove(s, move);
+      detectSfx(s, applied, move);
+      patchState(applied);
     };
 
     runWithFly(seat, move.cardIds, cards, commit, () => {
-      const next = applyMove(s, move);
-      const action = turnLogMoveAction(s, next, move);
-      pushTurn(playerName, seat, action, turnEndedAfterMove(s, next));
+      if (!applied) return;
+      pushTurn(
+        playerName,
+        seat,
+        turnLogMoveAction(s, applied, move),
+        turnEndedAfterMove(s, applied),
+      );
     });
   }, [deckPhase, patchState, runWithFly, pushTurn, registerOvercutHold]);
 

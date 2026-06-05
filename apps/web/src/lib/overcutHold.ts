@@ -9,7 +9,7 @@ export interface OvercutHold {
 }
 
 export function isOvercutPlay(cards: Card[]): boolean {
-  return cards.length === 1 && cards[0].kind === "skip";
+  return cards.length === 1 && cards[0]?.kind === "skip";
 }
 
 /** Seat that gained pendingSkip from this move. */
