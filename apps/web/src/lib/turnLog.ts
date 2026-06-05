@@ -6,10 +6,27 @@ import {
   phrasePlayedCards,
 } from "@/lib/cardDisplay";
 
-export interface TurnLogEntry {
+/** One player's turn — may include several plays before the next seat acts. */
+export interface TurnLogTurn {
   id: string;
   player: string;
-  action: string;
+  seat: number;
+  actions: string[];
+  /** Still the active seat (tap-out chain, higher confirm, etc.). */
+  inProgress?: boolean;
+}
+
+/** @deprecated Use TurnLogTurn */
+export type TurnLogEntry = TurnLogTurn;
+
+export const MAX_TURN_LOG_TURNS = 4;
+
+export function turnEndedAfterMove(prev: GameState, next: GameState): boolean {
+  return next.currentSeat !== prev.currentSeat;
+}
+
+export function turnEndedAfterConfirm(prev: GameState, next: GameState): boolean {
+  return next.currentSeat !== prev.currentSeat;
 }
 
 function cardsFromMove(state: GameState, seat: number, move: Move): Card[] {
@@ -152,15 +169,59 @@ export function describeHigherConfirm(prev: GameState, next: GameState): string 
   return turnLogConfirmAction(prev, next);
 }
 
+function newTurnId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/** Append a play to the current turn, or start a new turn group. Keeps last {@link MAX_TURN_LOG_TURNS} turns. */
+export function recordTurnPlay(
+  log: TurnLogTurn[],
+  player: string,
+  seat: number,
+  action: string,
+  endsTurn: boolean,
+): TurnLogTurn[] {
+  const trimmed = action.trim();
+  if (!trimmed) return trimTurnLog(log);
+
+  const tail = log[log.length - 1];
+
+  if (tail?.inProgress && tail.seat === seat) {
+    const turns = [...log];
+    turns[turns.length - 1] = {
+      ...tail,
+      player,
+      actions: [...tail.actions, trimmed],
+      inProgress: !endsTurn,
+    };
+    return trimTurnLog(turns);
+  }
+
+  const turns = [...log];
+  if (tail?.inProgress) {
+    turns[turns.length - 1] = { ...tail, inProgress: false };
+  }
+  turns.push({
+    id: newTurnId(),
+    player,
+    seat,
+    actions: [trimmed],
+    inProgress: !endsTurn,
+  });
+
+  return trimTurnLog(turns);
+}
+
+export function trimTurnLog(turns: TurnLogTurn[]): TurnLogTurn[] {
+  return turns.slice(-MAX_TURN_LOG_TURNS);
+}
+
+/** @deprecated Use recordTurnPlay */
 export function appendTurnLog(
-  entries: TurnLogEntry[],
+  entries: TurnLogTurn[],
   player: string,
   action: string,
-): TurnLogEntry[] {
-  const entry: TurnLogEntry = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    player,
-    action,
-  };
-  return [...entries, entry].slice(-4);
+): TurnLogTurn[] {
+  const seat = entries[entries.length - 1]?.seat ?? 0;
+  return recordTurnPlay(entries, player, seat, action, true);
 }

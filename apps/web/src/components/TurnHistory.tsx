@@ -1,17 +1,19 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import type { TurnLogEntry } from "@/lib/turnLog";
+import type { TurnLogTurn } from "@/lib/turnLog";
 import { TURN_TILE_WIDTH_CLASS, turnTilePanelClass } from "@/lib/panelTiles";
 
 interface Props {
-  entries: TurnLogEntry[];
+  entries: TurnLogTurn[];
   reducedMotion?: boolean;
   /** Overlay on playfield — does not consume layout space */
   floating?: boolean;
 }
 
 export function TurnHistory({ entries, reducedMotion, floating }: Props) {
+  const playCount = entries.reduce((n, t) => n + t.actions.length, 0);
+
   return (
     <div
       data-turn-history-panel
@@ -20,7 +22,7 @@ export function TurnHistory({ entries, reducedMotion, floating }: Props) {
       }`}
     >
       <p className="text-[10px] uppercase tracking-widest text-amber-200/50 mb-1.5 text-center">
-        Last 4 plays
+        Last 4 turns
       </p>
       {entries.length === 0 ? (
         <p className="text-amber-200/40 text-xs italic text-center rounded-xl border border-dashed border-amber-500/20 px-3 py-3">
@@ -60,14 +62,21 @@ export function TurnHistory({ entries, reducedMotion, floating }: Props) {
                     }`}
                   >
                     {e.player}
+                    {e.inProgress ? (
+                      <span className="text-amber-200/45 font-normal"> · playing</span>
+                    ) : null}
                   </p>
-                  <p
-                    className={`text-xs leading-snug mt-0.5 ${
+                  <ul
+                    className={`mt-1 space-y-0.5 list-disc pl-3.5 ${
                       isLatest ? "text-amber-100/95" : "text-amber-200/60"
                     }`}
                   >
-                    {e.action}
-                  </p>
+                    {e.actions.map((line, j) => (
+                      <li key={j} className="text-xs leading-snug marker:text-amber-500/40">
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
                 </motion.li>
               );
             })}
@@ -79,6 +88,11 @@ export function TurnHistory({ entries, reducedMotion, floating }: Props) {
           />
         </motion.ul>
       )}
+      {playCount > 0 && entries.length > 0 ? (
+        <p className="text-[9px] text-amber-200/35 text-center mt-1.5 tabular-nums">
+          {playCount} play{playCount === 1 ? "" : "s"} shown
+        </p>
+      ) : null}
     </div>
   );
 }

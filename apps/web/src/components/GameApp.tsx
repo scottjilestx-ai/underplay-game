@@ -28,12 +28,14 @@ import { BRAND_NAME } from "@/lib/brand";
 import { buildSlotMap, opponentTableWidthRem, type SlotMap } from "@/lib/cardSlots";
 import { sortHand } from "@/lib/sortCards";
 import {
-  appendTurnLog,
+  recordTurnPlay,
+  turnEndedAfterConfirm,
+  turnEndedAfterMove,
   turnLogConfirmAction,
   turnLogHigherExtension,
   turnLogHigherExtensionResult,
   turnLogMoveAction,
-  type TurnLogEntry,
+  type TurnLogTurn,
 } from "@/lib/turnLog";
 import { DeckAnimation } from "./DeckAnimation";
 import { WelcomeSplash } from "./WelcomeSplash";
@@ -118,7 +120,7 @@ export function GameApp() {
   const [deckPhase, setDeckPhase] = useState<DeckPhase>(null);
   const [openingDeal, setOpeningDeal] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
-  const [turnLog, setTurnLog] = useState<TurnLogEntry[]>([]);
+  const [turnLog, setTurnLog] = useState<TurnLogTurn[]>([]);
   const [playAnimating, setPlayAnimating] = useState(false);
   const [flyingSpecs, setFlyingSpecs] = useState<FlyingCardSpec[] | null>(null);
   const [flyDeal, setFlyDeal] = useState(false);
@@ -590,9 +592,12 @@ export function GameApp() {
     );
   }, [state]);
 
-  const pushTurn = useCallback((player: string, action: string) => {
-    setTurnLog((log) => appendTurnLog(log, player, action));
-  }, []);
+  const pushTurn = useCallback(
+    (player: string, seat: number, action: string, endsTurn: boolean) => {
+      setTurnLog((log) => recordTurnPlay(log, player, seat, action, endsTurn));
+    },
+    [],
+  );
 
   const startPlaySummary = useCallback(
     (player: string, historyAction: string, line: string) => {
@@ -708,7 +713,7 @@ export function GameApp() {
       runWithFly(prev.currentSeat, move.cardIds, cards, commit, () => {
         const next = applyMove(prev, move);
         const action = turnLogMoveAction(prev, next, move);
-        pushTurn(playerName, action);
+        pushTurn(playerName, prev.currentSeat, action, turnEndedAfterMove(prev, next));
         enqueuePlaySummary(
           playerName,
           action,
@@ -730,7 +735,12 @@ export function GameApp() {
     if (isAwaitingHigherConfirm(s)) {
       const next = resolveHigherConfirm(s, seat);
       detectHigherConfirmSfx(s, next);
-      pushTurn(playerName, turnLogConfirmAction(s, next));
+      pushTurn(
+        playerName,
+        seat,
+        turnLogConfirmAction(s, next),
+        turnEndedAfterConfirm(s, next),
+      );
       patchState(next);
       setSelected([]);
       return;
@@ -753,7 +763,7 @@ export function GameApp() {
     runWithFly(seat, move.cardIds, cards, commit, () => {
       const next = applyMove(s, move);
       const action = turnLogMoveAction(s, next, move);
-      pushTurn(playerName, action);
+      pushTurn(playerName, seat, action, turnEndedAfterMove(s, next));
       enqueuePlaySummary(
         playerName,
         action,
@@ -1025,7 +1035,12 @@ export function GameApp() {
                         const commit = () => {
                           const next = confirmHigherPlay(prev);
                           detectHigherConfirmSfx(prev, next);
-                          pushTurn(playerName, turnLogConfirmAction(prev, next));
+                          pushTurn(
+                            playerName,
+                            prev.currentSeat,
+                            turnLogConfirmAction(prev, next),
+                            turnEndedAfterConfirm(prev, next),
+                          );
                           patchState(next);
                           setSelected([]);
                         };
@@ -1173,7 +1188,7 @@ export function GameApp() {
                           const next = extendHigherPlay(prev, ids);
                           const suffix = turnLogHigherExtensionResult(prev, next);
                           const action = turnLogHigherExtension(prev, ids) + suffix;
-                          pushTurn(playerName, action);
+                          pushTurn(playerName, prev.currentSeat, action, false);
                           enqueuePlaySummary(
                             playerName,
                             action,
@@ -1195,7 +1210,12 @@ export function GameApp() {
                         const commit = () => {
                           const next = confirmHigherPlay(prev);
                           detectHigherConfirmSfx(prev, next);
-                          pushTurn(playerName, turnLogConfirmAction(prev, next));
+                          pushTurn(
+                            playerName,
+                            prev.currentSeat,
+                            turnLogConfirmAction(prev, next),
+                            turnEndedAfterConfirm(prev, next),
+                          );
                           patchState(next);
                           setSelected([]);
                         };
