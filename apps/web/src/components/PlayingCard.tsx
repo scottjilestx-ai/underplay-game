@@ -4,6 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import type { Card } from "@underplay/engine";
 import { deckBackSrc, deckFaceSrc } from "@/lib/cardArt";
+import { primeAudioFromGesture } from "@/lib/audio";
 import { useTheme } from "@/context/ThemeProvider";
 
 interface Props {
@@ -32,6 +33,9 @@ export function PlayingCard({
     <motion.button
       type="button"
       data-card-face={showBack ? "down" : "up"}
+      onPointerDown={() => {
+        if (onClick) primeAudioFromGesture();
+      }}
       onClick={onClick}
       disabled={!onClick}
       whileHover={onClick && !reducedMotion ? { y: -8, scale: 1.03 } : undefined}
@@ -43,7 +47,7 @@ export function PlayingCard({
           src={src}
           alt={showBack ? "Card back" : "Playing card"}
           fill
-          className="object-cover"
+          className="object-contain"
           sizes={small ? "56px" : "72px"}
           priority={showBack}
         />

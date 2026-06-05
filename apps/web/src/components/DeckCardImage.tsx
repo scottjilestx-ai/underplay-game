@@ -25,7 +25,7 @@ export function DeckCardImage({
 
   return (
     <div className={`relative ${className} overflow-hidden bg-white`}>
-      <Image src={src} alt="" fill className="object-cover" sizes={sizes} />
+      <Image src={src} alt="" fill className="object-contain" sizes={sizes} />
     </div>
   );
 }
