@@ -1,7 +1,11 @@
 /** Trim near-white atlas gutters before resize. */
 
 export function isInk(r, g, b, threshold = 248) {
-  return r < threshold || g < threshold || b < threshold;
+  /** Cream card stock in atlas is ~235–245; ink/gold/back art is darker or more saturated. */
+  const lum = (r + g + b) / 3;
+  if (lum < threshold) return true;
+  const sat = Math.max(r, g, b) - Math.min(r, g, b);
+  return sat > 18 && lum < 252;
 }
 
 export function tightBounds(data, width, height, options = {}) {

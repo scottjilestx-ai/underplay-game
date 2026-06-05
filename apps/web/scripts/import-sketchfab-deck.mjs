@@ -51,9 +51,12 @@ function faceExtract(value) {
   };
 }
 
+/** Column 7 is the most centered back cell in the atlas (col 0 is shifted right). */
+const BACK_COL = 7;
+
 function backExtract() {
   return {
-    left: 0,
+    left: BACK_COL * CELL_W,
     top: BACK_Y,
     width: CELL_W,
     height: BACK_ROW_H,
@@ -71,17 +74,29 @@ async function findBaseColorPath() {
   return path.join(TEXTURES_DIR, hit);
 }
 
-async function writeTrimmedJpeg(outPath, input, extract) {
-  const cell = await sharp(input).extract(extract).raw().toBuffer({ resolveWithObject: true });
-  const bounds = tightBounds(cell.data, cell.info.width, cell.info.height, {
+function finalizeEdgeToEdgeBuffer(data, width, height, channels) {
+  const bounds = tightBounds(data, width, height, {
+    /** Cream stock is ~235–245 lum; crop to printed art so cards fill UI slots. */
+    inkThreshold: 220,
     capAspect: CARD_ASPECT,
   });
-
-  await sharp(cell.data, {
-    raw: { width: cell.info.width, height: cell.info.height, channels: cell.info.channels },
+  return sharp(data, {
+    raw: { width, height, channels },
   })
     .extract(bounds)
-    .resize(FACE_W, FACE_H, { fit: "cover", position: "centre" })
+    .resize(FACE_W, FACE_H, { fit: "cover", position: "centre" });
+}
+
+async function writeTrimmedJpeg(outPath, input, extract) {
+  const { data, info } = await sharp(input).extract(extract).raw().toBuffer({ resolveWithObject: true });
+  await finalizeEdgeToEdgeBuffer(data, info.width, info.height, info.channels)
+    .jpeg({ quality: 88, mozjpeg: true })
+    .toFile(outPath);
+}
+
+async function finalizeJpegFile(outPath) {
+  const { data, info } = await sharp(outPath).raw().toBuffer({ resolveWithObject: true });
+  await finalizeEdgeToEdgeBuffer(data, info.width, info.height, info.channels)
     .jpeg({ quality: 88, mozjpeg: true })
     .toFile(outPath);
 }
@@ -104,6 +119,9 @@ async function main() {
   console.log("  back.jpg");
 
   await buildSketchfabSpecialFaces(facesDir);
+  for (const name of ["clear.jpg", "skip.jpg"]) {
+    await finalizeJpegFile(path.join(facesDir, name));
+  }
   console.log("  faces/clear.jpg (sketchfab special)");
   console.log("  faces/skip.jpg (sketchfab special)");
 
