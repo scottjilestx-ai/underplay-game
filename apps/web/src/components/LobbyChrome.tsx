@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTheme } from "@/context/ThemeProvider";
 import { UnderPlayLogo } from "./UnderPlayLogo";
+import { DeckSelector } from "./DeckSelector";
 import { ThemeSelector } from "./ThemeSelector";
 
 interface Props {
@@ -28,7 +29,10 @@ export function LobbyChrome({
         >
           ← {backLabel}
         </Link>
-        <ThemeSelector compact className="ml-auto shrink-0" />
+        <div className="ml-auto shrink-0 flex flex-col items-end gap-2">
+          <DeckSelector compact showBrowseLink={false} />
+          <ThemeSelector compact />
+        </div>
       </div>
       <div className="flex items-center gap-3">
         <div className="w-[7.5rem] shrink-0">

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useTheme } from "@/context/ThemeProvider";
-import { ThemedCardBack } from "./ThemedCardBack";
+import { DeckCardImage } from "./DeckCardImage";
 
 interface Props {
   seat: number;
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export function DealStockPile({ seat, count, reducedMotion }: Props) {
-  const { themeId } = useTheme();
+  const { deckId } = useTheme();
   if (count <= 0) {
     return (
       <div
@@ -48,10 +48,10 @@ export function DealStockPile({ seat, count, reducedMotion }: Props) {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.12 }}
             >
-              <ThemedCardBack themeId={themeId} className="h-full w-full" />
+              <DeckCardImage deckId={deckId} faceDown sizes="72px" />
             </motion.div>
           ) : (
-            <ThemedCardBack themeId={themeId} className="h-full w-full" />
+            <DeckCardImage deckId={deckId} faceDown sizes="72px" />
           )}
         </div>
       ))}

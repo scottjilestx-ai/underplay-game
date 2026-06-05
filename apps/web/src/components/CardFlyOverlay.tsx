@@ -8,9 +8,7 @@ import { DEAL_FLY_DURATION_S } from "@/lib/dealFly";
 import { FLY_DURATION_S, FLY_FLIP_REVEAL_S, playFlyEndDelayS } from "@/lib/cardFly";
 import { CARD_PLAY_EASE, CARD_STACK_LAND_EASE } from "@/lib/cardMotion";
 import { useTheme } from "@/context/ThemeProvider";
-import type { GameThemeId } from "@/lib/themes";
-import { ThemedCardBack } from "./ThemedCardBack";
-import { ThemedCardFace } from "./ThemedCardFace";
+import { DeckCardImage } from "./DeckCardImage";
 
 const FACE_UP_HOLD_S = FLY_FLIP_REVEAL_S;
 
@@ -24,43 +22,47 @@ interface Props {
   onCardLand?: (spec: FlyingCardSpec) => void;
 }
 
+function CardFaceShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative h-full w-full rounded-[0.35rem] overflow-hidden shadow-[0_10px_28px_rgba(0,0,0,0.5)]">
+      {children}
+    </div>
+  );
+}
+
 function CardFaceContent({
   card,
   faceDown,
-  themeId,
+  deckId,
 }: {
   card: FlyingCardSpec["card"];
   faceDown: boolean;
-  themeId: GameThemeId;
+  deckId: ReturnType<typeof useTheme>["deckId"];
 }) {
   return (
-    <div className="relative h-full w-full rounded-[0.35rem] overflow-hidden bg-white shadow-[0_10px_28px_rgba(0,0,0,0.5)]">
-      {faceDown ? (
-        <ThemedCardBack themeId={themeId} className="h-full w-full" />
-      ) : (
-        <ThemedCardFace card={card} themeId={themeId} className="h-full w-full" />
-      )}
-    </div>
+    <CardFaceShell>
+      <DeckCardImage deckId={deckId} card={card} faceDown={faceDown} sizes="80px" />
+    </CardFaceShell>
   );
 }
 
 function CardFlipFaces({
   card,
-  themeId,
+  deckId,
 }: {
   card: FlyingCardSpec["card"];
-  themeId: GameThemeId;
+  deckId: ReturnType<typeof useTheme>["deckId"];
 }) {
   return (
     <div className="relative h-full w-full" style={{ transformStyle: "preserve-3d" }}>
       <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
-        <CardFaceContent card={card} faceDown themeId={themeId} />
+        <CardFaceContent card={card} faceDown deckId={deckId} />
       </div>
       <div
         className="absolute inset-0"
         style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
       >
-        <CardFaceContent card={card} faceDown={false} themeId={themeId} />
+        <CardFaceContent card={card} faceDown={false} deckId={deckId} />
       </div>
     </div>
   );
@@ -75,7 +77,7 @@ export function CardFlyOverlay({
   onComplete,
   onCardLand,
 }: Props) {
-  const { themeId } = useTheme();
+  const { deckId } = useTheme();
   const duration = dealFlight
     ? stockDealFlight && stockDealDurationS != null
       ? stockDealDurationS
@@ -194,13 +196,13 @@ export function CardFlyOverlay({
                   ease: CARD_PLAY_EASE,
                 }}
               >
-                <CardFlipFaces card={spec.card} themeId={themeId} />
+                <CardFlipFaces card={spec.card} deckId={deckId} />
               </motion.div>
             ) : (
               <CardFaceContent
                 card={spec.card}
                 faceDown={showBackDuringDeal}
-                themeId={themeId}
+                deckId={deckId}
               />
             )}
           </motion.div>

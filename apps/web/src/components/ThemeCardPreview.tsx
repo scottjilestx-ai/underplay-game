@@ -1,47 +1,58 @@
 "use client";
 
+import Image from "next/image";
 import type { Card } from "@underplay/engine";
-import { ThemedCardBack } from "./ThemedCardBack";
-import { samplePreviewCard, ThemedCardFace } from "./ThemedCardFace";
-import type { GameThemeId } from "@/lib/themes";
+import { deckBackSrc, deckFaceSrc, getCardDeck, type CardDeckId } from "@/lib/cardDecks";
 
 const SAMPLE_CLEAR: Card = { id: "preview-clear", kind: "clear" };
 const SAMPLE_SKIP: Card = { id: "preview-skip", kind: "skip" };
 
+function sampleFace(deckId: CardDeckId): Card {
+  const rank = getCardDeck(deckId).previewRank;
+  return { id: `preview-${deckId}`, kind: "play", value: rank };
+}
+
 interface Props {
-  themeId: GameThemeId;
+  deckId: CardDeckId;
   className?: string;
 }
 
-/** Mini card for selectors and theme browser. */
-export function ThemeCardMini({ themeId, className = "" }: Props) {
+export function DeckCardMini({ deckId, className = "" }: Props) {
   return (
     <div
-      className={`relative w-11 h-[3.9rem] rounded-[0.3rem] overflow-hidden shadow-md ${className}`}
+      className={`relative w-11 h-[3.9rem] rounded-[0.3rem] overflow-hidden shadow-md bg-white ${className}`}
     >
-      <ThemedCardBack themeId={themeId} className="h-full w-full" />
+      <Image src={deckBackSrc(deckId)} alt="" fill className="object-cover" sizes="44px" />
     </div>
   );
 }
 
-export function ThemeCardStrip({ themeId, className = "" }: Props) {
-  const face = samplePreviewCard(themeId);
-  const cardClass = "h-full w-full";
+export function DeckCardStrip({ deckId, className = "" }: Props) {
+  const face = sampleFace(deckId);
 
   return (
     <div className={`flex gap-2 ${className}`}>
-      <div className="relative w-[3.25rem] h-[4.75rem] rounded-[0.3rem] overflow-hidden shadow-lg shrink-0">
-        <ThemedCardBack themeId={themeId} className={cardClass} />
-      </div>
-      <div className="relative w-[3.25rem] h-[4.75rem] rounded-[0.3rem] overflow-hidden shadow-lg shrink-0 bg-white">
-        <ThemedCardFace card={face} themeId={themeId} className={cardClass} />
-      </div>
-      <div className="relative w-[3.25rem] h-[4.75rem] rounded-[0.3rem] overflow-hidden shadow-lg shrink-0 bg-white">
-        <ThemedCardFace card={SAMPLE_CLEAR} themeId={themeId} className={cardClass} />
-      </div>
-      <div className="relative w-[3.25rem] h-[4.75rem] rounded-[0.3rem] overflow-hidden shadow-lg shrink-0 bg-white">
-        <ThemedCardFace card={SAMPLE_SKIP} themeId={themeId} className={cardClass} />
-      </div>
+      {[
+        { faceDown: true as const, card: undefined },
+        { faceDown: false as const, card: face },
+        { faceDown: false as const, card: SAMPLE_CLEAR },
+        { faceDown: false as const, card: SAMPLE_SKIP },
+      ].map((item, i) => (
+        <div
+          key={i}
+          className="relative w-[3.25rem] h-[4.75rem] rounded-[0.3rem] overflow-hidden shadow-lg shrink-0 bg-white"
+        >
+          <Image
+            src={
+              item.faceDown ? deckBackSrc(deckId) : deckFaceSrc(deckId, item.card!)
+            }
+            alt=""
+            fill
+            className="object-cover"
+            sizes="52px"
+          />
+        </div>
+      ))}
     </div>
   );
 }

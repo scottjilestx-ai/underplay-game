@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useTheme } from "@/context/ThemeProvider";
-import { ThemedCardBack } from "./ThemedCardBack";
+import { DeckCardImage } from "./DeckCardImage";
 
 interface Props {
   count: number;
@@ -19,7 +19,7 @@ const MAX_ROTATE_DEG = 22;
 const ROTATION_BLEED_PX = 20;
 
 export function OpponentHandFan({ count, dealEntrance, reducedMotion, dense }: Props) {
-  const { themeId } = useTheme();
+  const { deckId } = useTheme();
   if (count <= 0) return null;
 
   const CARD_W = dense ? CARD_W_DENSE : CARD_W_DEFAULT;
@@ -83,7 +83,7 @@ export function OpponentHandFan({ count, dealEntrance, reducedMotion, dense }: P
                   transformOrigin: "50% 100%",
                 }}
               >
-                <ThemedCardBack themeId={themeId} className="h-full w-full" />
+                <DeckCardImage deckId={deckId} faceDown sizes={dense ? "40px" : "56px"} />
               </div>
             </motion.div>
           );

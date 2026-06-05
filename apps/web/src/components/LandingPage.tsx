@@ -5,9 +5,10 @@ import { motion } from "framer-motion";
 import { BRAND_NAME } from "@/lib/brand";
 import { useTheme } from "@/context/ThemeProvider";
 import { UnderPlayLogo } from "./UnderPlayLogo";
+import { DeckSelector } from "./DeckSelector";
 import { ThemeSelector } from "./ThemeSelector";
 import { ScrollPage } from "./ScrollPage";
-import { ThemeCardStrip } from "./ThemeCardPreview";
+import { DeckCardStrip } from "./ThemeCardPreview";
 
 const FEATURES = [
   {
@@ -33,7 +34,7 @@ const FEATURES = [
 ] as const;
 
 export function LandingPage() {
-  const { themeId, theme } = useTheme();
+  const { themeId, theme, deckId, deck } = useTheme();
 
   return (
     <ScrollPage>
@@ -52,11 +53,12 @@ export function LandingPage() {
               <span style={{ color: "var(--theme-accent)" }}>card duel.</span>
             </h1>
             <p className="text-theme-muted text-sm sm:text-base mt-2 leading-relaxed max-w-md">
-              Empty your hand, dodge the pile, and finish with the lowest score. Six SVG deck
-              themes — no photo assets.
+              Realistic card decks plus table themes. SVG wordmark only — cards are photo-style
+              images.
             </p>
           </div>
           <div className="shrink-0 flex flex-col gap-3 sm:items-end">
+            <DeckSelector compact />
             <ThemeSelector compact />
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Link
@@ -78,18 +80,20 @@ export function LandingPage() {
         <section className="mb-10 rounded-2xl border border-theme-border bg-theme-panel p-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div>
-              <h2 className="font-serif text-lg text-theme-ink">Current deck theme</h2>
-              <p className="text-theme-muted text-sm">{theme.name} — {theme.tagline}</p>
+              <h2 className="font-serif text-lg text-theme-ink">Current deck</h2>
+              <p className="text-theme-muted text-sm">
+                {deck.name} — {deck.tagline}
+              </p>
             </div>
             <Link
               href="/themes"
-              className="text-sm font-semibold hover:opacity-90 transition shrink-0"
+              className="text-sm font-semibold shrink-0"
               style={{ color: "var(--theme-accent)" }}
             >
-              Browse all themes →
+              Compare all decks →
             </Link>
           </div>
-          <ThemeCardStrip themeId={themeId} />
+          <DeckCardStrip deckId={deckId} />
         </section>
 
         <section className="grid sm:grid-cols-2 gap-3 sm:gap-4 mb-8">

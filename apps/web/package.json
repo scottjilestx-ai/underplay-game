@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "npm run build -w @underplay/engine && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "import-decks": "node scripts/import-card-decks.mjs"
   },
   "dependencies": {
     "@underplay/engine": "*",

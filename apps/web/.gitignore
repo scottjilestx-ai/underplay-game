@@ -20,6 +20,9 @@
 # production
 /build
 
+# import script workspace
+/tmp
+
 # misc
 .DS_Store
 *.pem

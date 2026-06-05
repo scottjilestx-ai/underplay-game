@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useTheme } from "@/context/ThemeProvider";
-import { ThemedCardBack } from "./ThemedCardBack";
+import { DeckCardImage } from "./DeckCardImage";
 
 interface Props {
   phase: "shuffle" | "deal" | null;
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export function DeckAnimation({ phase, reducedMotion, hidden }: Props) {
-  const { themeId } = useTheme();
+  const { deckId } = useTheme();
   if (!phase || reducedMotion) return null;
 
   const dealing = phase === "deal";
@@ -42,7 +42,7 @@ export function DeckAnimation({ phase, reducedMotion, hidden }: Props) {
         className="relative h-[6.5rem] w-[4.5rem] shadow-2xl"
       >
         <div className="absolute inset-0 rounded-[0.35rem] overflow-hidden bg-white">
-          <ThemedCardBack themeId={themeId} className="h-full w-full" />
+          <DeckCardImage deckId={deckId} faceDown sizes="72px" />
         </div>
       </motion.div>
       {phase === "shuffle" && (
