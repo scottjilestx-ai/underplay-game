@@ -81,6 +81,13 @@ import { stackZoneHeightRem } from "@/lib/cardDimensions";
 import { buildFlySpecs, type FlyingCardSpec } from "@/lib/cardFly";
 import { GameLobby } from "./GameLobby";
 import { nextLastPlayStackCount, type GameSetupConfig } from "@/lib/gameSetup";
+import {
+  findSkipTarget,
+  isOvercutPlay,
+  overcutHeldForSeat,
+  type OvercutHold,
+} from "@/lib/overcutHold";
+import { OvercutPlaySlot } from "./OvercutPlaySlot";
 
 const CPU_TURN_DELAY_MS = 1400;
 const CPU_TURN_DELAY_REDUCED_MS = 120;
@@ -121,6 +128,8 @@ export function GameApp() {
   const [stockDealFly, setStockDealFly] = useState(false);
   const [stockDealDurationS, setStockDealDurationS] = useState(0.05);
   const [hiddenFlyIds, setHiddenFlyIds] = useState<Set<string>>(new Set());
+  const [overcutHeld, setOvercutHeld] = useState<OvercutHold[]>([]);
+  const overcutReleaseScheduled = useRef<Set<string>>(new Set());
   const dealFlyStartedRef = useRef<DeckPhase | null>(null);
   const [landedCardIds, setLandedCardIds] = useState<Set<string>>(new Set());
   const slotMapsRef = useRef<Record<number, SlotMap>>({});
@@ -162,6 +171,8 @@ export function GameApp() {
     setStockDealFly(false);
     setOpeningDeal(false);
     setDeckPhase(null);
+    setOvercutHeld([]);
+    overcutReleaseScheduled.current.clear();
     setState(null);
     setScreen("lobby");
     setSelected([]);
@@ -483,6 +494,40 @@ export function GameApp() {
     });
   }, []);
 
+  const pendingSkipKey =
+    state?.players.map((p) => (p.pendingSkip ? "1" : "0")).join("") ?? "";
+
+  useEffect(() => {
+    if (!state) return;
+    for (const h of overcutHeld) {
+      if (state.players[h.targetSeat]?.pendingSkip) continue;
+      if (overcutReleaseScheduled.current.has(h.cardId)) continue;
+      overcutReleaseScheduled.current.add(h.cardId);
+      const ms = reducedMotion ? 0 : 320;
+      window.setTimeout(() => {
+        setOvercutHeld((prev) => prev.filter((x) => x.cardId !== h.cardId));
+        overcutReleaseScheduled.current.delete(h.cardId);
+      }, ms);
+    }
+  }, [state, state?.version, pendingSkipKey, overcutHeld, reducedMotion]);
+
+  const registerOvercutHold = useCallback(
+    (prev: GameState, next: GameState, move: Move, cards: Card[]) => {
+      const targetSeat = findSkipTarget(prev, next, move);
+      if (targetSeat < 0) return;
+      setOvercutHeld((holds) => [
+        ...holds.filter((h) => h.cardId !== cards[0].id),
+        {
+          cardId: cards[0].id,
+          card: cards[0],
+          playerSeat: prev.currentSeat,
+          targetSeat,
+        },
+      ]);
+    },
+    [],
+  );
+
   const startGame = (config: GameSetupConfig) => {
     setStartError(null);
     try {
@@ -512,6 +557,8 @@ export function GameApp() {
       setDealtUpIds(new Set());
       setStockCounts({});
       setHandFaceDown(false);
+      setOvercutHeld([]);
+      overcutReleaseScheduled.current.clear();
       runOpeningSequence();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not start game";
@@ -634,6 +681,18 @@ export function GameApp() {
         .map((id) => findInPlayerZones(prev.players[prev.currentSeat], id))
         .filter((c): c is Card => !!c);
 
+      if (isOvercutPlay(cards)) {
+        const next = applyMove(prev, move);
+        detectSfx(prev, next, move);
+        patchState(next);
+        registerOvercutHold(prev, next, move, cards);
+        const action = turnLogMoveAction(prev, next, move);
+        pushTurn(playerName, prev.currentSeat, action, turnEndedAfterMove(prev, next));
+        setSelected([]);
+        setSkipTarget(null);
+        return;
+      }
+
       const commit = () => {
         const next = applyMove(prev, move);
         detectSfx(prev, next, move);
@@ -648,7 +707,7 @@ export function GameApp() {
         pushTurn(playerName, prev.currentSeat, action, turnEndedAfterMove(prev, next));
       });
     },
-    [state, deckPhase, patchState, playAnimating, runWithFly, pushTurn],
+    [state, deckPhase, patchState, playAnimating, runWithFly, pushTurn, registerOvercutHold],
   );
 
   const runCpuTurn = useCallback(() => {
@@ -681,6 +740,16 @@ export function GameApp() {
       .map((id) => findInPlayerZones(s.players[seat], id))
       .filter((c): c is Card => !!c);
 
+    if (isOvercutPlay(cards)) {
+      const next = applyMove(s, move);
+      detectSfx(s, next, move);
+      patchState(next);
+      registerOvercutHold(s, next, move, cards);
+      const action = turnLogMoveAction(s, next, move);
+      pushTurn(playerName, seat, action, turnEndedAfterMove(s, next));
+      return;
+    }
+
     const commit = () => {
       const next = applyMove(s, move);
       detectSfx(s, next, move);
@@ -692,7 +761,7 @@ export function GameApp() {
       const action = turnLogMoveAction(s, next, move);
       pushTurn(playerName, seat, action, turnEndedAfterMove(s, next));
     });
-  }, [deckPhase, patchState, runWithFly, pushTurn]);
+  }, [deckPhase, patchState, runWithFly, pushTurn, registerOvercutHold]);
 
   useEffect(() => {
     const s = state;
@@ -802,6 +871,7 @@ export function GameApp() {
   }
   const stackDisplay = gameConfigRef.current?.stackDisplay ?? "full";
   const me = state.players[viewSeat];
+  const myOvercut = overcutHeldForSeat(overcutHeld, viewSeat);
   const T = topValue(state.stack);
   const myTurn = state.currentSeat === viewSeat && state.phase === "playing";
   const activePlayer = state.players[state.currentSeat];
@@ -917,6 +987,7 @@ export function GameApp() {
                 reducedMotion={reducedMotion}
                 reveal={reveal}
                 hiddenFlyIds={hiddenFlyIds}
+                overcutHeld={overcutHeld}
                 openingDeal={openingDeal}
                 deckPhase={deckPhase}
                 stockCounts={stockCounts}
@@ -996,6 +1067,8 @@ export function GameApp() {
                 patchState(n);
                 setLastEvent("");
                 setTurnLog([]);
+                setOvercutHeld([]);
+                overcutReleaseScheduled.current.clear();
                 runDealAnimation();
               }
             }}
@@ -1029,6 +1102,16 @@ export function GameApp() {
                   onSelect={(id) => toggleSelect(id)}
                 />
               </div>
+
+              <AnimatePresence>
+                {myOvercut && (
+                  <OvercutPlaySlot
+                    key={myOvercut.cardId}
+                    card={myOvercut.card}
+                    reducedMotion={reducedMotion}
+                  />
+                )}
+              </AnimatePresence>
 
               <div className="shrink-0">
                 {handVisible ? (
@@ -1218,6 +1301,7 @@ function OpponentZone({
   reducedMotion,
   reveal,
   hiddenFlyIds,
+  overcutHeld,
   openingDeal,
   deckPhase,
   stockCounts,
@@ -1230,6 +1314,7 @@ function OpponentZone({
   reducedMotion?: boolean;
   reveal: 0 | 1 | 2 | 3;
   hiddenFlyIds: Set<string>;
+  overcutHeld: OvercutHold[];
   openingDeal: boolean;
   deckPhase: DeckPhase;
   stockCounts: Record<number, number>;
@@ -1259,6 +1344,7 @@ function OpponentZone({
         reducedMotion={reducedMotion}
         reveal={reveal}
         hiddenCardIds={hiddenFlyIds}
+        overcutHeld={overcutHeldForSeat(overcutHeld, p.seat)}
         openingDeal={openingDeal}
         deckPhase={deckPhase}
         stockCount={stockCounts[p.seat] ?? 0}
@@ -1306,6 +1392,7 @@ function OpponentPanel({
   reducedMotion,
   reveal,
   hiddenCardIds,
+  overcutHeld,
   openingDeal,
   deckPhase,
   stockCount,
@@ -1320,6 +1407,7 @@ function OpponentPanel({
   reducedMotion?: boolean;
   reveal: 0 | 1 | 2 | 3;
   hiddenCardIds?: ReadonlySet<string>;
+  overcutHeld?: OvercutHold;
   openingDeal?: boolean;
   deckPhase: DeckPhase;
   stockCount: number;
@@ -1368,6 +1456,16 @@ function OpponentPanel({
           />
         )}
       </div>
+      <AnimatePresence>
+        {overcutHeld && (
+          <OvercutPlaySlot
+            key={overcutHeld.cardId}
+            card={overcutHeld.card}
+            reducedMotion={reducedMotion}
+            compact={dense}
+          />
+        )}
+      </AnimatePresence>
       <div className="w-full shrink-0 pt-2">
         <PlayerTableSlots
           seat={player.seat}
