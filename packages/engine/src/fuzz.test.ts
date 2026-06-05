@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyMove } from "./apply.js";
-import { chooseMove } from "./ai.js";
+import { isAwaitingHigherConfirm } from "./confirm.js";
+import { chooseMove, resolveHigherConfirm } from "./ai.js";
 import { checkConservation } from "./invariant.js";
 import { legalMoves } from "./moves.js";
 import { createMatch, startNextRound } from "./game.js";
@@ -17,10 +18,14 @@ function playRandomMatch(seed: number, players: number) {
   let rounds = 0;
   while (state.phase !== "matchOver" && rounds < 6 && turns < 400) {
     while (state.phase === "playing" && turns++ < 400) {
-      const moves = legalMoves(state, state.currentSeat);
-      expect(moves.length).toBeGreaterThan(0);
-      const move = chooseMove(state, state.currentSeat, "medium") ?? moves[0];
-      state = applyMove(state, move);
+      if (isAwaitingHigherConfirm(state)) {
+        state = resolveHigherConfirm(state, state.currentSeat);
+      } else {
+        const moves = legalMoves(state, state.currentSeat);
+        expect(moves.length).toBeGreaterThan(0);
+        const move = chooseMove(state, state.currentSeat, "medium") ?? moves[0];
+        state = applyMove(state, move);
+      }
       expect(checkConservation(state)).toBe(true);
     }
     if (state.phase === "roundOver") {

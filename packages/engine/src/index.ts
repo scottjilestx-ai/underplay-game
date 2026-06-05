@@ -6,6 +6,7 @@ export * from "./deal.js";
 export * from "./player.js";
 export * from "./validate.js";
 export * from "./apply.js";
+export * from "./confirm.js";
 export * from "./moves.js";
 export * from "./game.js";
 export * from "./scoring.js";

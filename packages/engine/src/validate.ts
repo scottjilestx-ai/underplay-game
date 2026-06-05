@@ -1,4 +1,4 @@
-import { findCard, isOut, uncoveredFaceDownCount } from "./player.js";
+import { findCard, isOut, isFaceDownUncovered } from "./player.js";
 import type { GameState, Move, ValidationResult } from "./types.js";
 
 export function validate(state: GameState, seat: number, move: Move): ValidationResult {
@@ -17,20 +17,12 @@ export function validate(state: GameState, seat: number, move: Move): Validation
   const faceDownIds = ids.filter((id) => player.faceDown.some((c) => c.id === id));
   if (faceDownIds.length > 1) return { ok: false, error: "multiple face-down" };
   if (faceDownIds.length === 1) {
-    const uncovered = uncoveredFaceDownCount(player);
-    const fdIndex = player.faceDown.findIndex((c) => c.id === faceDownIds[0]);
-    const mustBeUncovered = player.faceDown.length - uncovered;
-    if (fdIndex < mustBeUncovered) return { ok: false, error: "face-down covered" };
-    const companions = ids.filter((id) => id !== faceDownIds[0]);
-    const flipped = findCard(player, faceDownIds[0])!;
-    if (flipped.kind !== "play") {
-      if (companions.length) return { ok: false, error: "special flip alone" };
-      return { ok: true };
+    if (!isFaceDownUncovered(player, faceDownIds[0])) {
+      return { ok: false, error: "face-down covered" };
     }
-    for (const id of companions) {
-      const c = findCard(player, id)!;
-      if (player.faceDown.some((x) => x.id === id)) return { ok: false, error: "extra face-down" };
-      if (c.kind !== "play" || c.value !== flipped.value) return { ok: false, error: "mismatch flip combo" };
+    const companions = ids.filter((id) => id !== faceDownIds[0]);
+    if (companions.length) {
+      return { ok: false, error: "flip face-down alone; add matches after confirm" };
     }
     return { ok: true };
   }

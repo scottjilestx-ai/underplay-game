@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyMove } from "./apply.js";
+import { confirmHigherPlay, extendHigherPlay } from "./confirm.js";
 import { buildDeck } from "./deck.js";
 import { createMatch } from "./game.js";
 import { checkConservation } from "./invariant.js";
@@ -66,7 +67,7 @@ describe("tap-out", () => {
 });
 
 describe("higher play", () => {
-  it("picks up pile to hand not auto-combine", () => {
+  it("picks up pile to hand and awaits confirm", () => {
     const s = minimalState();
     const pool = gatherCards(s);
     const tens = pool.filter((c) => c.kind === "play" && c.value === 10);
@@ -82,6 +83,91 @@ describe("higher play", () => {
     expect(next.stack.map((c) => c.id)).toEqual([tens[1].id]);
     expect(next.players[0].hand.some((c) => c.id === fours[0].id)).toBe(true);
     expect(next.currentSeat).toBe(0);
+    expect(next.pendingHigherConfirm).toEqual({ rank: 10 });
+  });
+
+  it("confirm passes turn; extension adds same rank only", () => {
+    const s = minimalState();
+    const pool = gatherCards(s);
+    const tens = pool.filter((c) => c.kind === "play" && c.value === 10);
+    const fours = pool.filter((c) => c.kind === "play" && c.value === 4);
+    const used = [fours[0], tens[0], tens[1], tens[2]];
+    s.leftover = s.leftover.filter((c) => !used.some((u) => u.id === c.id));
+    s.stack = [fours[0]];
+    s.players[0].hand = [tens[0], tens[1], tens[2]];
+    s.players[0].faceUp = [];
+    s.players[0].faceDown = [];
+    s.currentSeat = 0;
+    let mid = applyMove(s, { cardIds: [tens[0].id] });
+    mid = extendHigherPlay(mid, [tens[1].id, tens[2].id]);
+    expect(mid.stack.length).toBe(3);
+    const done = confirmHigherPlay(mid);
+    expect(done.pendingHigherConfirm).toBeNull();
+    expect(done.currentSeat).toBe(1);
+  });
+
+  it("extension tap-out clears confirm and keeps turn to play again", () => {
+    const s = minimalState();
+    const pool = gatherCards(s);
+    const queens = pool.filter((c) => c.kind === "play" && c.value === 12);
+    const fours = pool.filter((c) => c.kind === "play" && c.value === 4);
+    const used = [fours[0], queens[0], queens[1], queens[2], queens[3]];
+    s.leftover = s.leftover.filter((c) => !used.some((u) => u.id === c.id));
+    s.stack = [fours[0]];
+    s.players[0].hand = [queens[0], queens[1], queens[2], queens[3]];
+    s.players[0].faceUp = [];
+    s.players[0].faceDown = [];
+    s.currentSeat = 0;
+    let mid = applyMove(s, { cardIds: [queens[0].id] });
+    expect(mid.pendingHigherConfirm).toEqual({ rank: 12 });
+    mid = extendHigherPlay(mid, [queens[1].id, queens[2].id, queens[3].id]);
+    expect(mid.stack).toEqual([]);
+    expect(mid.pendingHigherConfirm).toBeNull();
+    expect(mid.currentSeat).toBe(0);
+    expect(legalMoves(mid, 0).length).toBeGreaterThan(0);
+  });
+});
+
+describe("face-down uncover by slot", () => {
+  it("allows flip when that slot lost its face-up, not only the last pile", () => {
+    const s = minimalState();
+    const pool = gatherCards(s);
+    const cards = pool.filter((c) => c.kind === "play").slice(0, 6);
+    s.leftover = s.leftover.filter((c) => !cards.some((x) => x.id === c.id));
+    s.stack = [];
+    s.currentSeat = 0;
+    s.players[0].hand = [];
+    s.players[0].faceDown = cards.slice(0, 4).map((c, slot) => ({ ...c, slot }));
+    s.players[0].faceUp = [cards[4], cards[5]].map((c, i) => ({ ...c, slot: i }));
+    const slot1Down = s.players[0].faceDown[1]!;
+    expect(legalMoves(s, 0).some((m) => m.cardIds[0] === slot1Down.id)).toBe(false);
+    s.players[0].faceUp = s.players[0].faceUp.filter((c) => c.slot !== 1);
+    expect(legalMoves(s, 0).some((m) => m.cardIds[0] === slot1Down.id)).toBe(true);
+  });
+});
+
+describe("face-down flip", () => {
+  it("safe flip awaits confirm to add same rank from hand", () => {
+    const s = minimalState();
+    const pool = gatherCards(s);
+    const twos = pool.filter((c) => c.kind === "play" && c.value === 2);
+    const sevens = pool.filter((c) => c.kind === "play" && c.value === 7);
+    const used = [twos[0], twos[1], twos[2], sevens[0]];
+    s.leftover = s.leftover.filter((c) => !used.some((u) => u.id === c.id));
+    s.stack = [sevens[0]];
+    s.players[0].hand = [twos[1], twos[2]];
+    s.players[0].faceUp = [];
+    s.players[0].faceDown = [twos[0]];
+    s.currentSeat = 0;
+    const next = applyMove(s, { cardIds: [twos[0].id] });
+    expect(next.stack.map((c) => c.id)).toEqual([sevens[0].id, twos[0].id]);
+    expect(next.pendingHigherConfirm).toEqual({ rank: 2 });
+    expect(next.currentSeat).toBe(0);
+    const extended = extendHigherPlay(next, [twos[1].id]);
+    expect(extended.stack.length).toBe(3);
+    const done = confirmHigherPlay(extended);
+    expect(done.pendingHigherConfirm).toBeNull();
+    expect(done.currentSeat).toBe(1);
   });
 });
 

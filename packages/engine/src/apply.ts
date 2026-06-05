@@ -2,6 +2,7 @@ import { topRunLength, topValue } from "./deck.js";
 import { isOut, removeCards } from "./player.js";
 import { finalizeRound, resolveStalemate } from "./scoring.js";
 import { advanceTurn, defaultSkipTarget } from "./turn.js";
+import { isAwaitingHigherConfirm } from "./confirm.js";
 import { validate } from "./validate.js";
 import type { GameState, Move } from "./types.js";
 
@@ -10,11 +11,17 @@ function cloneState(state: GameState): GameState {
 }
 
 export function applyMove(state: GameState, move: Move): GameState {
+  if (isAwaitingHigherConfirm(state)) {
+    throw new Error("confirm higher play before playing again");
+  }
   const v = validate(state, state.currentSeat, move);
   if (!v.ok) throw new Error(v.error ?? "invalid move");
   const s = cloneState(state);
   const seat = s.currentSeat;
   const player = s.players[seat];
+  const isFaceDownFlip = move.cardIds.some((id) =>
+    player.faceDown.some((c) => c.id === id),
+  );
   const played = removeCards(player, move.cardIds);
   let keepsTurn = false;
 
@@ -44,6 +51,11 @@ export function applyMove(state: GameState, move: Move): GameState {
       const below = s.stack.slice(0, s.stack.length - played.length);
       player.hand.push(...below);
       s.stack = [...played];
+      s.pendingHigherConfirm = { rank: V };
+      keepsTurn = true;
+    } else if (isFaceDownFlip) {
+      // Safe number flip: pause so same-rank hand/face-up cards can be added, then Confirm.
+      s.pendingHigherConfirm = { rank: V };
       keepsTurn = true;
     }
   }

@@ -7,9 +7,30 @@
   --gold: #c9a227;
 }
 
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
 body {
   font-family: "DM Sans", system-ui, sans-serif;
-  margin: 0;
+}
+
+/* Scroll only inside the play log when it fills up (not on the empty panel). */
+.turn-log-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 162, 39, 0.35) transparent;
+}
+
+.turn-log-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.turn-log-scroll::-webkit-scrollbar-thumb {
+  background: rgba(201, 162, 39, 0.35);
+  border-radius: 3px;
 }
 
 .font-serif {
@@ -22,11 +43,13 @@ body {
     linear-gradient(160deg, #0d1f17 0%, #1a1208 50%, #0a0f0d 100%);
 }
 
+/* Single felt surface — avoid a bright horizontal band in the stack zone */
 .table-bg {
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(40, 120, 80, 0.25), transparent),
-    radial-gradient(ellipse at center, var(--felt) 0%, #0f2e22 70%, #081810 100%);
-  box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.5);
+  background-color: #0d261c;
+  background-image:
+    radial-gradient(ellipse 120% 90% at 50% 38%, rgba(26, 77, 58, 0.22), transparent 62%),
+    linear-gradient(180deg, #081810 0%, #143528 48%, #0d261c 100%);
+  box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.45);
 }
 
 /* Bicycle card assets: /public/cards/bicycle-back.jpg, bicycle-face.jpg */

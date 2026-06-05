@@ -9,6 +9,7 @@
   "scripts": {
     "test": "npm run test -w @underplay/engine",
     "dev": "npm run dev -w @underplay/web",
+    "dev:clean": "node -e \"require('fs').rmSync('apps/web/.next',{recursive:true,force:true})\" && npm run dev -w @underplay/web",
     "build": "npm run build -w @underplay/web",
     "sim": "npm run sim -w @underplay/engine",
     "lint": "npm run build -w @underplay/engine && npm run test -w @underplay/engine"

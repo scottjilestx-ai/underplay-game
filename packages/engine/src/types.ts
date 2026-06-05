@@ -4,6 +4,8 @@ export interface Card {
   id: string;
   kind: CardKind;
   value?: number;
+  /** Table pile index (0..faceDownPerPlayer-1); set on dealt face-down / face-up cards. */
+  slot?: number;
 }
 
 export type CpuDifficulty = "easy" | "medium" | "hard";
@@ -38,12 +40,18 @@ export interface RulesSnapshot {
   stalemateTurnCap: number;
 }
 
+/** After a higher play (V > T) or safe face-down flip: add same-rank from hand/face-up, then confirm. */
+export interface PendingHigherConfirm {
+  rank: number;
+}
+
 export interface GameState {
   players: PlayerState[];
   stack: Card[];
   deadPile: Card[];
   leftover: Card[];
   currentSeat: number;
+  pendingHigherConfirm: PendingHigherConfirm | null;
   phase: GamePhase;
   scores: number[];
   roundScores: number[] | null;

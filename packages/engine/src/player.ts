@@ -1,7 +1,31 @@
 import type { Card, PlayerState } from "./types.js";
 
+function faceUpCoversSlot(player: PlayerState, slot: number): boolean {
+  return player.faceUp.some((c) => c.slot === slot);
+}
+
+/** Face-down cards with no face-up card in the same table slot. */
+export function uncoveredFaceDownCards(player: PlayerState): Card[] {
+  return player.faceDown.filter((fd) => {
+    if (fd.slot == null) {
+      const legacyUncovered = Math.max(
+        0,
+        player.faceDown.length - player.faceUp.length,
+      );
+      const coveredStart = player.faceDown.length - legacyUncovered;
+      const idx = player.faceDown.findIndex((c) => c.id === fd.id);
+      return idx >= coveredStart;
+    }
+    return !faceUpCoversSlot(player, fd.slot);
+  });
+}
+
+export function isFaceDownUncovered(player: PlayerState, faceDownId: string): boolean {
+  return uncoveredFaceDownCards(player).some((c) => c.id === faceDownId);
+}
+
 export function uncoveredFaceDownCount(player: PlayerState): number {
-  return Math.max(0, player.faceDown.length - player.faceUp.length);
+  return uncoveredFaceDownCards(player).length;
 }
 
 export function totalHeld(player: PlayerState): number {

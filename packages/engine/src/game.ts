@@ -2,6 +2,14 @@ import { dealRound } from "./deal.js";
 import { DEFAULT_RULES } from "./config.js";
 import type { GameState, PlayerSetup, RulesSnapshot } from "./types.js";
 
+/** Back-compat for states saved before pendingHigherConfirm existed. */
+export function normalizeGameState(state: GameState): GameState {
+  if (state.pendingHigherConfirm === undefined) {
+    return { ...state, pendingHigherConfirm: null };
+  }
+  return state;
+}
+
 export function createMatch(
   setups: PlayerSetup[],
   rules: RulesSnapshot = DEFAULT_RULES,

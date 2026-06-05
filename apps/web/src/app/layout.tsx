@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { BRAND_NAME } from "@/lib/brand";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Underplay",
+  title: BRAND_NAME,
   description: "Play under the top card — photorealistic shedding card game",
 };
 
@@ -13,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased min-h-screen">{children}</body>
+      <body className="antialiased h-full overflow-hidden">{children}</body>
     </html>
   );
 }

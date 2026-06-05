@@ -31,10 +31,14 @@ export function dealRound(
 
   let idx = 0;
   for (let r = 0; r < rules.faceDownPerPlayer; r++) {
-    for (let p = 0; p < playerCount; p++) players[p].faceDown.push(deck[idx++]);
+    for (let p = 0; p < playerCount; p++) {
+      players[p].faceDown.push({ ...deck[idx++], slot: r });
+    }
   }
   for (let r = 0; r < rules.faceUpPerPlayer; r++) {
-    for (let p = 0; p < playerCount; p++) players[p].faceUp.push(deck[idx++]);
+    for (let p = 0; p < playerCount; p++) {
+      players[p].faceUp.push({ ...deck[idx++], slot: r });
+    }
   }
   for (let r = 0; r < rules.handSize; r++) {
     for (let p = 0; p < playerCount; p++) players[p].hand.push(deck[idx++]);
@@ -46,6 +50,7 @@ export function dealRound(
     deadPile: [],
     leftover,
     currentSeat: startingSeat,
+    pendingHigherConfirm: null,
     phase: "playing",
     scores: [...scores],
     roundScores: null,

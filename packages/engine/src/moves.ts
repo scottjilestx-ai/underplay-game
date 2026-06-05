@@ -1,4 +1,5 @@
-import { uncoveredFaceDownCount } from "./player.js";
+import { isAwaitingHigherConfirm } from "./confirm.js";
+import { uncoveredFaceDownCards } from "./player.js";
 import { validate } from "./validate.js";
 import type { Card, GameState, Move } from "./types.js";
 
@@ -25,6 +26,7 @@ function combinations(cards: Card[], max: number): Card[][] {
 
 export function legalMoves(state: GameState, seat: number): Move[] {
   if (state.phase !== "playing" || seat !== state.currentSeat) return [];
+  if (isAwaitingHigherConfirm(state)) return [];
   const player = state.players[seat];
   const moves: Move[] = [];
   const seen = new Set<string>();
@@ -38,19 +40,8 @@ export function legalMoves(state: GameState, seat: number): Move[] {
     }
   };
 
-  const uncovered = uncoveredFaceDownCount(player);
-  const coveredStart = player.faceDown.length - uncovered;
-  for (let i = coveredStart; i < player.faceDown.length; i++) {
-    const fd = player.faceDown[i];
+  for (const fd of uncoveredFaceDownCards(player)) {
     add({ cardIds: [fd.id] });
-    if (fd.kind === "play") {
-      const pool = [...player.hand, ...player.faceUp].filter(
-        (c) => c.kind === "play" && c.value === fd.value,
-      );
-      for (const combo of combinations(pool, pool.length)) {
-        add({ cardIds: [fd.id, ...combo.map((c) => c.id)] });
-      }
-    }
   }
 
   for (const c of player.hand) {

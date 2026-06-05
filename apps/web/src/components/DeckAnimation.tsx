@@ -12,22 +12,27 @@ interface Props {
 export function DeckAnimation({ phase, reducedMotion }: Props) {
   if (!phase || reducedMotion) return null;
 
+  const dealing = phase === "deal";
+
   return (
     <motion.div
-      className="pointer-events-none absolute left-1/2 top-[38%] z-30 -translate-x-1/2"
+      data-fly-source="deck"
+      className="pointer-events-none absolute left-1/2 top-[38%] z-30 -translate-x-1/2 -translate-y-1/2"
       initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{ opacity: dealing ? 0.92 : 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.6 }}
     >
       <motion.div
         animate={
           phase === "shuffle"
             ? { rotate: [0, -6, 6, -4, 4, 0], y: [0, -4, 0, -2, 0] }
-            : { y: [0, -12, 0], scale: [1, 1.05, 1] }
+            : dealing
+              ? { y: [0, -3, 0] }
+              : { y: [0, -12, 0], scale: [1, 1.05, 1] }
         }
         transition={{
-          duration: phase === "shuffle" ? 0.9 : 0.5,
-          repeat: phase === "shuffle" ? 2 : 0,
+          duration: phase === "shuffle" ? 0.9 : dealing ? 1.4 : 0.5,
+          repeat: phase === "shuffle" ? 2 : dealing ? Infinity : 0,
           ease: "easeInOut",
         }}
         className="relative h-24 w-[4.5rem] shadow-2xl"
@@ -42,9 +47,11 @@ export function DeckAnimation({ phase, reducedMotion }: Props) {
           </div>
         ))}
       </motion.div>
-      <p className="mt-3 text-center text-amber-100/80 text-sm font-medium tracking-wide">
-        {phase === "shuffle" ? "Shuffling…" : "Dealing…"}
-      </p>
+      {phase === "shuffle" && (
+        <p className="mt-3 text-center text-amber-100/80 text-sm font-medium tracking-wide">
+          Shuffling…
+        </p>
+      )}
     </motion.div>
   );
 }

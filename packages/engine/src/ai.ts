@@ -1,5 +1,11 @@
-import { topValue } from "./deck.js";
+import { topRunLength, topValue } from "./deck.js";
 import { applyMove } from "./apply.js";
+import {
+  confirmHigherPlay,
+  extendHigherPlay,
+  isAwaitingHigherConfirm,
+  legalHigherExtensions,
+} from "./confirm.js";
 import { isOut, pointsHeld, totalHeld } from "./player.js";
 import { legalMoves } from "./moves.js";
 import type { CpuDifficulty, GameState, Move } from "./types.js";
@@ -47,6 +53,35 @@ function evaluateMove(
   } catch {
     return -1_000_000;
   }
+}
+
+/** After a higher play: optionally extend with same-rank cards, then confirm (passes turn). */
+export function resolveHigherConfirm(state: GameState, seat: number): GameState {
+  if (!isAwaitingHigherConfirm(state) || state.currentSeat !== seat) return state;
+  const rank = state.pendingHigherConfirm!.rank;
+  const extensions = legalHigherExtensions(state, seat);
+  let best: string[] = [];
+  let bestScore = -Infinity;
+  for (const ids of extensions) {
+    try {
+      const extended = extendHigherPlay(state, ids);
+      let score = 0;
+      const run = topRunLength(extended.stack);
+      if (run >= extended.rules.tapOutCount || extended.stack.length === 0) score += 200;
+      score -= extended.players[seat].hand.filter((c) => c.kind === "play" && c.value === rank).length * 5;
+      score -= ids.length * 8;
+      if (score > bestScore) {
+        bestScore = score;
+        best = ids;
+      }
+    } catch {
+      /* skip invalid */
+    }
+  }
+  let s = state;
+  if (best.length) s = extendHigherPlay(s, best);
+  if (!isAwaitingHigherConfirm(s)) return s;
+  return confirmHigherPlay(s);
 }
 
 export function chooseMove(
