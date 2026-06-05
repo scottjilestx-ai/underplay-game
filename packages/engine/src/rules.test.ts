@@ -171,6 +171,35 @@ describe("face-down flip", () => {
   });
 });
 
+describe("skip (overcut)", () => {
+  it("applies pendingSkip only to the chosen target seat", () => {
+    const s = createMatch(
+      [
+        { name: "You", isCpu: false },
+        { name: "Bodily", isCpu: true },
+        { name: "Chip", isCpu: true },
+        { name: "Pat", isCpu: true },
+      ],
+      undefined,
+      7,
+    );
+    const pool = gatherCards(s);
+    const skip = pool.find((c) => c.kind === "skip")!;
+    s.leftover = s.leftover.filter((c) => c.id !== skip.id);
+    s.players[0].hand = [skip];
+    s.players[0].faceUp = [];
+    s.players[0].faceDown = [];
+    s.currentSeat = 0;
+    const chipSeat = s.players.findIndex((p) => p.name === "Chip");
+    expect(chipSeat).toBeGreaterThan(0);
+    const next = applyMove(s, { cardIds: [skip.id], targetSeat: chipSeat });
+    const bodilySeat = s.players.findIndex((p) => p.name === "Bodily");
+    expect(next.players[chipSeat].pendingSkip).toBe(true);
+    expect(next.players[bodilySeat].pendingSkip).toBe(false);
+    expect(next.currentSeat).toBe(0);
+  });
+});
+
 describe("face-down undercut", () => {
   it("requires a target and sends the stack to that player", () => {
     const s = minimalState();

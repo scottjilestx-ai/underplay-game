@@ -51,6 +51,13 @@ export function validate(state: GameState, seat: number, move: Move): Validation
   const hasSpecial = played.some((c) => c.kind !== "play");
   if (hasSpecial) {
     if (played.length !== 1) return { ok: false, error: "special alone" };
+    if (played[0].kind === "skip") {
+      const tv = validateTarget(state, seat, move.targetSeat);
+      if (!tv.ok) return tv;
+      if (state.players[move.targetSeat!]!.pendingSkip) {
+        return { ok: false, error: "already skipped" };
+      }
+    }
     return { ok: true };
   }
   const values = new Set(played.map((c) => c.value));

@@ -1,7 +1,7 @@
 import { topRunLength, topValue } from "./deck.js";
 import { isOut, removeCards } from "./player.js";
 import { finalizeRound, resolveStalemate } from "./scoring.js";
-import { advanceTurn, defaultSkipTarget } from "./turn.js";
+import { advanceTurn } from "./turn.js";
 import { isAwaitingHigherConfirm } from "./confirm.js";
 import { validate } from "./validate.js";
 import type { GameState, Move } from "./types.js";
@@ -41,11 +41,7 @@ export function applyMove(state: GameState, move: Move): GameState {
     keepsTurn = true;
   } else if (played[0].kind === "skip") {
     s.deadPile.push(...played);
-    let target = move.targetSeat ?? defaultSkipTarget(s, seat);
-    const p = s.players[target];
-    if (!p || isOut(p) || p.pendingSkip) {
-      target = defaultSkipTarget(s, seat);
-    }
+    const target = move.targetSeat!;
     s.players[target].pendingSkip = true;
     keepsTurn = true;
   } else {

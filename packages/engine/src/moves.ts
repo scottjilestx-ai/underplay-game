@@ -54,11 +54,22 @@ export function legalMoves(state: GameState, seat: number): Move[] {
     }
   }
 
+  const addSkipTargets = (cardId: string) => {
+    for (let t = 0; t < state.players.length; t++) {
+      if (t === seat) continue;
+      const target = state.players[t];
+      if (!target || isOut(target) || target.pendingSkip) continue;
+      add({ cardIds: [cardId], targetSeat: t });
+    }
+  };
+
   for (const c of player.hand) {
-    if (c.kind === "clear" || c.kind === "skip") add({ cardIds: [c.id] });
+    if (c.kind === "skip") addSkipTargets(c.id);
+    else if (c.kind === "clear") add({ cardIds: [c.id] });
   }
   for (const c of player.faceUp) {
-    if (c.kind === "clear" || c.kind === "skip") add({ cardIds: [c.id] });
+    if (c.kind === "skip") addSkipTargets(c.id);
+    else if (c.kind === "clear") add({ cardIds: [c.id] });
   }
 
   const pool = [...player.hand, ...player.faceUp].filter((c) => c.kind === "play");
@@ -72,25 +83,6 @@ export function legalMoves(state: GameState, seat: number): Move[] {
     for (const combo of combinations(group, group.length)) {
       add({ cardIds: combo.map((c) => c.id) });
     }
-  }
-
-  const skipMoves = moves.filter((m) => {
-    const c = [...player.hand, ...player.faceUp, ...player.faceDown].find(
-      (x) => x.id === m.cardIds[0],
-    );
-    return c?.kind === "skip";
-  });
-  if (skipMoves.length) {
-    const extra: Move[] = [];
-    for (const m of skipMoves) {
-      for (let t = 0; t < state.players.length; t++) {
-        if (t === seat) continue;
-        const target = state.players[t];
-        if (target.pendingSkip) continue;
-        extra.push({ ...m, targetSeat: t });
-      }
-    }
-    for (const m of extra) add(m);
   }
 
   return moves;

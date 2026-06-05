@@ -83,11 +83,12 @@ import { buildFlySpecs, type FlyingCardSpec } from "@/lib/cardFly";
 import { GameLobby } from "./GameLobby";
 import { nextLastPlayStackCount, type GameSetupConfig } from "@/lib/gameSetup";
 import {
-  findSkipTarget,
+  createOvercutHold,
   isOvercutPlay,
-  overcutHeldForSeat,
+  overcutHeldOnTarget,
   type OvercutHold,
 } from "@/lib/overcutHold";
+import { canPlaySelection, findMoveForSelection } from "@/lib/playMove";
 import { OvercutPlaySlot } from "./OvercutPlaySlot";
 import { RoundEndOverlay } from "./RoundEndOverlay";
 
@@ -531,16 +532,11 @@ export function GameApp() {
 
   const registerOvercutHold = useCallback(
     (prev: GameState, next: GameState, move: Move, cards: Card[]) => {
-      const targetSeat = findSkipTarget(prev, next, move);
-      if (targetSeat < 0) return;
+      const hold = createOvercutHold(prev, next, move, cards);
+      if (!hold) return;
       setOvercutHeld((holds) => [
-        ...holds.filter((h) => h.cardId !== cards[0].id),
-        {
-          cardId: cards[0].id,
-          card: cards[0],
-          playerSeat: prev.currentSeat,
-          targetSeat,
-        },
+        ...holds.filter((h) => h.cardId !== hold.cardId),
+        hold,
       ]);
     },
     [],
@@ -596,16 +592,6 @@ export function GameApp() {
     return legalMoves(state, viewSeat);
   }, [state, awaitingConfirm, viewSeat]);
 
-  const canPlay = useMemo(() => {
-    if (!selected.length || !state) return false;
-    return humanMoves.some(
-      (m) =>
-        m.cardIds.length === selected.length &&
-        m.cardIds.every((id) => selected.includes(id)) &&
-        (m.targetSeat == null || m.targetSeat === skipTarget),
-    );
-  }, [humanMoves, selected, skipTarget, state]);
-
   const canAddToHigher = useMemo(() => {
     if (!state || !awaitingConfirm || !selected.length) return false;
     const key = [...selected].sort().join(",");
@@ -629,6 +615,15 @@ export function GameApp() {
   }, [state, selected, viewSeat]);
 
   const needsPlayTarget = isSkipSelection || isFaceDownUndercutSelection;
+  const playTargetSeat = needsPlayTarget ? skipTarget : null;
+
+  const canPlay = useMemo(() => {
+    if (!selected.length || !state) return false;
+    return canPlaySelection(humanMoves, selected, {
+      needsTarget: needsPlayTarget,
+      targetSeat: playTargetSeat,
+    });
+  }, [humanMoves, selected, needsPlayTarget, playTargetSeat, state]);
 
   const playTargetOptions = useMemo(() => {
     if (!state || !needsPlayTarget) return [];
@@ -854,7 +849,15 @@ export function GameApp() {
       }
     } else if (played.some((c) => c?.kind === "skip")) {
       playSfx("skip");
-      setLastEvent(stillYourTurn ? "Skip played — your turn continues." : "Skip played.");
+      const targetName =
+        move.targetSeat != null
+          ? (next.players[move.targetSeat]?.name ?? "opponent")
+          : "opponent";
+      setLastEvent(
+        stillYourTurn
+          ? `Overcut on ${targetName} — skip pending. Your turn continues.`
+          : `Overcut on ${targetName} — skip pending.`,
+      );
     } else if (move.cardIds.some((id) => prev.players[seat].faceDown.some((c) => c.id === id))) {
       playSfx("flip");
       if (next.pendingHigherConfirm) {
@@ -931,7 +934,7 @@ export function GameApp() {
   }
   const stackDisplay = gameConfigRef.current?.stackDisplay ?? "full";
   const me = state.players[viewSeat];
-  const myOvercut = overcutHeldForSeat(overcutHeld, viewSeat);
+  const incomingOvercut = overcutHeldOnTarget(overcutHeld, viewSeat);
   const T = topValue(state.stack);
   const myTurn = state.currentSeat === viewSeat && state.phase === "playing";
   const activePlayer = state.players[state.currentSeat];
@@ -1160,10 +1163,10 @@ export function GameApp() {
               </div>
 
               <AnimatePresence>
-                {myOvercut && (
+                {incomingOvercut && (
                   <OvercutPlaySlot
-                    key={myOvercut.cardId}
-                    card={myOvercut.card}
+                    key={incomingOvercut.cardId}
+                    card={incomingOvercut.card}
                     reducedMotion={reducedMotion}
                   />
                 )}
@@ -1294,12 +1297,10 @@ export function GameApp() {
                           : undefined
                     }
                     onClick={() => {
-                      const move = humanMoves.find(
-                        (m) =>
-                          m.cardIds.length === selected.length &&
-                          [...m.cardIds].sort().join() === [...selected].sort().join() &&
-                          (m.targetSeat == null || m.targetSeat === skipTarget),
-                      );
+                      const move = findMoveForSelection(humanMoves, selected, {
+                        needsTarget: needsPlayTarget,
+                        targetSeat: playTargetSeat,
+                      });
                       if (move) applyHumanMove(move);
                     }}
                     className="px-8 py-2 rounded-xl bg-amber-500 text-black font-semibold disabled:opacity-40"
@@ -1406,7 +1407,7 @@ function OpponentZone({
         reducedMotion={reducedMotion}
         reveal={reveal}
         hiddenCardIds={hiddenFlyIds}
-        overcutHeld={overcutHeldForSeat(overcutHeld, p.seat)}
+        overcutHeld={overcutHeldOnTarget(overcutHeld, p.seat)}
         openingDeal={openingDeal}
         deckPhase={deckPhase}
         stockCount={stockCounts[p.seat] ?? 0}
