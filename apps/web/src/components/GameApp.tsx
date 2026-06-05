@@ -88,6 +88,7 @@ import {
   type OvercutHold,
 } from "@/lib/overcutHold";
 import { OvercutPlaySlot } from "./OvercutPlaySlot";
+import { RoundEndOverlay } from "./RoundEndOverlay";
 
 const CPU_TURN_DELAY_MS = 1400;
 const CPU_TURN_DELAY_REDUCED_MS = 120;
@@ -180,6 +181,22 @@ export function GameApp() {
     router.push("/");
   }, [state, router]);
 
+  const exitToLobby = useCallback(() => {
+    for (const t of dealTimersRef.current) clearTimeout(t);
+    dealTimersRef.current = [];
+    setFlyingSpecs(null);
+    setFlyDeal(false);
+    setStockDealFly(false);
+    setOpeningDeal(false);
+    setDeckPhase(null);
+    setOvercutHeld([]);
+    overcutReleaseScheduled.current.clear();
+    setState(null);
+    setScreen("lobby");
+    setSelected([]);
+    setTurnLog([]);
+    setStartError(null);
+  }, []);
   useEffect(() => {
     setMuted(muted);
     setVolume(vol);
@@ -1095,25 +1112,21 @@ export function GameApp() {
           </div>
 
         {(state.phase === "roundOver" || state.phase === "matchOver") && (
-          <EndOverlay
+          <RoundEndOverlay
             state={state}
             humanSeat={viewSeat}
-            onNext={() => {
-              if (state.phase === "matchOver") {
-                setScreen("lobby");
-                setState(null);
-              } else {
-                const n = startNextRound(state);
-                slotMapsRef.current = initSlotMaps(n);
-                setDeckPhase(null);
-                patchState(n);
-                setLastEvent("");
-                setTurnLog([]);
-                setOvercutHeld([]);
-                overcutReleaseScheduled.current.clear();
-                runDealAnimation();
-              }
+            onNextRound={() => {
+              const n = startNextRound(state);
+              slotMapsRef.current = initSlotMaps(n);
+              setDeckPhase(null);
+              patchState(n);
+              setLastEvent("");
+              setTurnLog([]);
+              setOvercutHeld([]);
+              overcutReleaseScheduled.current.clear();
+              runDealAnimation();
             }}
+            onExitToLobby={exitToLobby}
           />
         )}
 
@@ -1545,46 +1558,6 @@ function OpponentPanel({
         <span className="text-rose-300 text-[10px] text-center">Skip pending</span>
       )}
     </div>
-  );
-}
-
-function EndOverlay({
-  state,
-  humanSeat,
-  onNext,
-}: {
-  state: GameState;
-  humanSeat: number;
-  onNext: () => void;
-}) {
-  const won =
-    state.matchWinner === humanSeat ||
-    (state.matchTiedWinners.includes(humanSeat) && state.phase === "matchOver");
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-    >
-      <div className="text-center p-8 rounded-2xl bg-gradient-to-b from-amber-900/80 to-black/80 border border-amber-500/30">
-        <h2 className="font-serif text-3xl text-amber-100 mb-2">
-          {state.phase === "matchOver" ? "Match Over" : "Round Over"}
-        </h2>
-        <p className="text-amber-200/80 mb-4">
-          {state.roundScores ? `Round points: ${state.roundScores.join(", ")}` : ""}
-        </p>
-        {state.phase === "matchOver" && (
-          <p className="text-xl text-amber-300 mb-6">{won ? "You win!" : "Match complete"}</p>
-        )}
-        <button
-          type="button"
-          onClick={onNext}
-          className="px-8 py-3 rounded-xl bg-amber-500 text-black font-semibold"
-        >
-          {state.phase === "matchOver" ? "Back to Lobby" : "Next Round"}
-        </button>
-      </div>
-    </motion.div>
   );
 }
 
