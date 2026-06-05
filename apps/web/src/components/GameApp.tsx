@@ -26,7 +26,7 @@ import {
 } from "@underplay/engine";
 import { playSfx, setMuted, setVolume } from "@/lib/audio";
 import { BRAND_NAME } from "@/lib/brand";
-import { buildSlotMap, OPPONENT_TABLE_WIDTH_REM, type SlotMap } from "@/lib/cardSlots";
+import { buildSlotMap, opponentTableWidthRem, type SlotMap } from "@/lib/cardSlots";
 import { sortHand } from "@/lib/sortCards";
 import {
   appendTurnLog,
@@ -1019,32 +1019,19 @@ export function GameApp() {
 
           <div className="flex-1 min-h-0 flex flex-col">
             {showOpponentZone(deckPhase) && (
-              <section className="shrink-0 flex justify-center px-1 overflow-visible">
-                <div className="flex justify-center gap-3 flex-wrap">
-                  {state.players
-                    .filter((p) => p.seat !== humanSeat)
-                    .map((p) => (
-                      <OpponentPanel
-                        key={p.seat}
-                        player={p}
-                        slotMap={
-                          slotMapsRef.current[p.seat] ??
-                          buildSlotMap(p.faceDown, p.faceUp)
-                        }
-                        active={state.currentSeat === p.seat}
-                        portrait={CPU_PORTRAITS[p.seat % 4]}
-                        reducedMotion={reducedMotion}
-                        reveal={reveal}
-                        hiddenCardIds={hiddenFlyIds}
-                        openingDeal={openingDeal}
-                        deckPhase={deckPhase}
-                        stockCount={stockCounts[p.seat] ?? 0}
-                        dealtDownIds={dealtDownIds}
-                        dealtUpIds={dealtUpIds}
-                      />
-                    ))}
-                </div>
-              </section>
+              <OpponentZone
+                players={state.players.filter((p) => p.seat !== humanSeat)}
+                currentSeat={state.currentSeat}
+                slotMapsRef={slotMapsRef}
+                reducedMotion={reducedMotion}
+                reveal={reveal}
+                hiddenFlyIds={hiddenFlyIds}
+                openingDeal={openingDeal}
+                deckPhase={deckPhase}
+                stockCounts={stockCounts}
+                dealtDownIds={dealtDownIds}
+                dealtUpIds={dealtUpIds}
+              />
             )}
 
             {showStackZone(deckPhase, openingDeal) && (
@@ -1337,11 +1324,98 @@ export function GameApp() {
   }
 }
 
+function OpponentZone({
+  players,
+  currentSeat,
+  slotMapsRef,
+  reducedMotion,
+  reveal,
+  hiddenFlyIds,
+  openingDeal,
+  deckPhase,
+  stockCounts,
+  dealtDownIds,
+  dealtUpIds,
+}: {
+  players: GameState["players"];
+  currentSeat: number;
+  slotMapsRef: { current: Record<number, SlotMap> };
+  reducedMotion?: boolean;
+  reveal: 0 | 1 | 2 | 3;
+  hiddenFlyIds: Set<string>;
+  openingDeal: boolean;
+  deckPhase: DeckPhase;
+  stockCounts: Record<number, number>;
+  dealtDownIds: Set<string>;
+  dealtUpIds: Set<string>;
+}) {
+  const count = players.length;
+  const dense = count >= 3;
+
+  const panel = (p: GameState["players"][0], align?: "start" | "center" | "end") => (
+    <div
+      key={p.seat}
+      className={
+        align === "start"
+          ? "flex justify-end"
+          : align === "end"
+            ? "flex justify-start"
+            : "flex justify-center"
+      }
+    >
+      <OpponentPanel
+        player={p}
+        dense={dense}
+        slotMap={slotMapsRef.current[p.seat] ?? buildSlotMap(p.faceDown, p.faceUp)}
+        active={currentSeat === p.seat}
+        portrait={CPU_PORTRAITS[p.seat % 4]}
+        reducedMotion={reducedMotion}
+        reveal={reveal}
+        hiddenCardIds={hiddenFlyIds}
+        openingDeal={openingDeal}
+        deckPhase={deckPhase}
+        stockCount={stockCounts[p.seat] ?? 0}
+        dealtDownIds={dealtDownIds}
+        dealtUpIds={dealtUpIds}
+      />
+    </div>
+  );
+
+  if (count >= 3) {
+    return (
+      <section className="shrink-0 w-full px-2 sm:px-4 overflow-visible">
+        <div
+          className="w-full max-w-5xl mx-auto grid grid-cols-3 items-end gap-x-4 sm:gap-x-8 md:gap-x-12"
+          role="group"
+          aria-label="Opponents"
+        >
+          {panel(players[0], "start")}
+          {panel(players[1], "center")}
+          {panel(players[2], "end")}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="shrink-0 flex justify-center px-2 overflow-visible">
+      <div
+        className={`flex justify-center items-end ${count === 2 ? "gap-10 sm:gap-16 md:gap-20" : ""}`}
+        role="group"
+        aria-label="Opponents"
+      >
+        {players.map((p) => panel(p))}
+      </div>
+    </section>
+  );
+}
+
 function OpponentPanel({
   player,
   slotMap,
   active,
   portrait,
+  dense,
   reducedMotion,
   reveal,
   hiddenCardIds,
@@ -1355,6 +1429,7 @@ function OpponentPanel({
   slotMap: SlotMap;
   active: boolean;
   portrait: string;
+  dense?: boolean;
   reducedMotion?: boolean;
   reveal: 0 | 1 | 2 | 3;
   hiddenCardIds?: ReadonlySet<string>;
@@ -1365,15 +1440,16 @@ function OpponentPanel({
   dealtUpIds: Set<string>;
 }) {
   const handVisible = !openingDeal || showHandRow(deckPhase, openingDeal);
+  const tableWidthRem = opponentTableWidthRem(dense);
   return (
     <div
       data-fly-source={`opponent-${player.seat}`}
-      className={`inline-flex flex-col items-center gap-1 py-1 transition-shadow rounded-xl ${
+      className={`inline-flex flex-col items-center gap-1 py-2 px-2 transition-shadow rounded-xl border ${
         active
-          ? "ring-2 ring-amber-400/80 bg-amber-500/10 shadow-[0_0_14px_rgba(251,191,36,0.15)] px-2"
-          : "px-0"
+          ? "ring-2 ring-amber-400/80 border-amber-400/50 bg-amber-500/15 shadow-[0_0_14px_rgba(251,191,36,0.15)]"
+          : "border-amber-500/20 bg-black/30"
       }`}
-      style={{ width: `${OPPONENT_TABLE_WIDTH_REM}rem` }}
+      style={{ width: `${tableWidthRem}rem` }}
     >
       <div className="flex flex-col items-center gap-0.5 w-full">
         <div
@@ -1395,6 +1471,7 @@ function OpponentPanel({
           <OpponentHandFan
             count={reveal >= 3 ? player.hand.length : 0}
             reducedMotion={reducedMotion}
+            dense={dense}
           />
         ) : (
           <DealStockPile
@@ -1427,7 +1504,8 @@ function OpponentPanel({
           reducedMotion={reducedMotion}
           hiddenCardIds={hiddenCardIds}
           onSelect={() => {}}
-          compact
+          compact={!dense}
+          dense={dense}
         />
       </div>
       {player.pendingSkip && (

@@ -14,6 +14,8 @@ interface Props {
   reducedMotion?: boolean;
   onSelect: (id: string) => void;
   compact?: boolean;
+  /** Narrower than compact — used when several opponents share one row. */
+  dense?: boolean;
   hiddenCardIds?: ReadonlySet<string>;
 }
 
@@ -31,12 +33,13 @@ export function PlayerTableSlots({
   reducedMotion,
   onSelect,
   compact,
+  dense,
   hiddenCardIds,
 }: Props) {
-  const slotW = compact ? "w-14" : "w-[4.5rem]";
-  const slotH = compact ? "h-20" : "h-[6.5rem]";
-  const gap = compact ? "gap-3" : "gap-5";
-  const nudge = compact ? UP_NUDGE_COMPACT : UP_NUDGE;
+  const slotW = dense ? "w-11" : compact ? "w-14" : "w-[4.5rem]";
+  const slotH = dense ? "h-16" : compact ? "h-20" : "h-[6.5rem]";
+  const gap = dense ? "gap-2" : compact ? "gap-3" : "gap-5";
+  const nudge = dense || compact ? UP_NUDGE_COMPACT : UP_NUDGE;
 
   return (
     <div className={`grid grid-cols-4 ${gap} justify-center w-fit mx-auto`}>

@@ -9,6 +9,17 @@ export const OPPONENT_TABLE_WIDTH_REM =
   TABLE_SLOTS * OPPONENT_TABLE_SLOT_W_REM +
   (TABLE_SLOTS - 1) * OPPONENT_TABLE_SLOT_GAP_REM;
 
+/** Tighter layout when 3+ opponents share the top row (PlayerTableSlots dense). */
+export const OPPONENT_TABLE_SLOT_W_DENSE_REM = 2.75;
+export const OPPONENT_TABLE_SLOT_GAP_DENSE_REM = 0.5;
+export const OPPONENT_TABLE_WIDTH_DENSE_REM =
+  TABLE_SLOTS * OPPONENT_TABLE_SLOT_W_DENSE_REM +
+  (TABLE_SLOTS - 1) * OPPONENT_TABLE_SLOT_GAP_DENSE_REM;
+
+export function opponentTableWidthRem(dense?: boolean): number {
+  return dense ? OPPONENT_TABLE_WIDTH_DENSE_REM : OPPONENT_TABLE_WIDTH_REM;
+}
+
 export type SlotMap = Record<string, number>;
 
 export function buildSlotMap(faceDown: Card[], faceUp: Card[]): SlotMap {

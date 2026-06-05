@@ -8,18 +8,34 @@ interface Props {
   count: number;
   dealEntrance?: boolean;
   reducedMotion?: boolean;
+  /** Tighter fan when multiple opponents share the top row. */
+  dense?: boolean;
 }
 
-const CARD_W = 40;
-const CARD_H = 56;
+const CARD_W_DEFAULT = 40;
+const CARD_H_DEFAULT = 56;
+const CARD_W_DENSE = 30;
+const CARD_H_DENSE = 42;
 const MAX_ROTATE_DEG = 22;
 const ROTATION_BLEED_PX = 20;
 
 /** Fanned card backs, centered on the same axis as the table row below. */
-export function OpponentHandFan({ count, dealEntrance, reducedMotion }: Props) {
+export function OpponentHandFan({ count, dealEntrance, reducedMotion, dense }: Props) {
   if (count <= 0) return null;
 
-  const step = count > 9 ? 7 : count > 6 ? 9 : 11;
+  const CARD_W = dense ? CARD_W_DENSE : CARD_W_DEFAULT;
+  const CARD_H = dense ? CARD_H_DENSE : CARD_H_DEFAULT;
+  const step = dense
+    ? count > 9
+      ? 5
+      : count > 6
+        ? 6
+        : 8
+    : count > 9
+      ? 7
+      : count > 6
+        ? 9
+        : 11;
   const mid = (count - 1) / 2;
   const span = Math.max(0, count - 1) * step;
   const rotatePad = 14;
@@ -68,7 +84,13 @@ export function OpponentHandFan({ count, dealEntrance, reducedMotion }: Props) {
                   transformOrigin: "50% 100%",
                 }}
               >
-                <Image src={CARD_BACK_SRC} alt="" fill className="object-cover" sizes="40px" />
+                <Image
+                  src={CARD_BACK_SRC}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes={dense ? "30px" : "40px"}
+                />
               </div>
             </motion.div>
           );
