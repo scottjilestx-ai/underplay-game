@@ -104,7 +104,9 @@ export function buildFlySpecs(
     if (!el) continue;
     const from = rectFromElement(el, i, cardIds.length);
     const revealBeforeFly =
-      sourceShowsCardBack(el) || (options?.revealBeforeFlyIds?.has(id) ?? false);
+      sourceShowsCardBack(el) ||
+      (options?.revealBeforeFlyIds?.has(id) ?? false) ||
+      el.matches("[data-fly-source]");
     specs.push({
       id,
       card,
@@ -118,12 +120,14 @@ export function buildFlySpecs(
   return specs.length ? specs : null;
 }
 
+/** Hand plays: short beat at source before flight (see CardFlyOverlay). */
+export const FACE_UP_SOURCE_HOLD_S = 0.12;
+
 export function playFlyEndDelayS(specs: FlyingCardSpec[]): number {
   if (!specs.length) return 0;
-  const faceUpHoldS = FLY_FLIP_REVEAL_S;
   return Math.max(
     ...specs.map((s) => {
-      const holdS = s.revealBeforeFly ? FLY_FLIP_REVEAL_S : faceUpHoldS;
+      const holdS = s.revealBeforeFly ? FLY_FLIP_REVEAL_S : FACE_UP_SOURCE_HOLD_S;
       return s.delay + holdS + FLY_DURATION_S;
     }),
   );
