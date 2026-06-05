@@ -4,6 +4,7 @@ import type { Card } from "@underplay/engine";
 export type CardDeckId =
   | "bicycle"
   | "kenney"
+  | "sketchfab"
   | "classic-diamonds"
   | "classic-hearts"
   | "classic-spades"
@@ -38,6 +39,15 @@ export const CARD_DECKS: Record<CardDeckId, CardDeck> = {
     license: "CC0 — Kenney.nl",
     basePath: "/cards/decks/kenney",
     previewRank: 7,
+  },
+  sketchfab: {
+    id: "sketchfab",
+    name: "Sketchfab Vintage",
+    shortName: "Sketchfab",
+    tagline: "Distressed casino deck — Dumokan Art (CC BY).",
+    license: "CC BY — Dumokan Art / Sketchfab",
+    basePath: "/cards/decks/sketchfab",
+    previewRank: 8,
   },
   "classic-diamonds": {
     id: "classic-diamonds",
@@ -80,6 +90,7 @@ export const CARD_DECKS: Record<CardDeckId, CardDeck> = {
 export const CARD_DECK_IDS: CardDeckId[] = [
   "bicycle",
   "kenney",
+  "sketchfab",
   "classic-diamonds",
   "classic-hearts",
   "classic-spades",

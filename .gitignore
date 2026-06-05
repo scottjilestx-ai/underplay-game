@@ -7,3 +7,7 @@ dist/
 .vercel
 mcps/
 terminals/
+
+# Sketchfab source (keep baked JPEGs under public/cards/decks/sketchfab/)
+apps/web/public/cards/decks/sketchfab/playing-cards.zip
+apps/web/public/cards/decks/sketchfab/source/
